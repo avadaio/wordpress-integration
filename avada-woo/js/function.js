@@ -1,4 +1,9 @@
+document.write('<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/10.13.3/sweetalert2.min.js" ></script>');
+
 jQuery(document).ready(function(){
+
+	const LIMIT = 10
+
 	jQuery('.btn-test-connection').click(function(){
 
 		var avada_woo_app_id = jQuery('#avada_woo_app_id').val().trim()
@@ -106,7 +111,7 @@ jQuery(document).ready(function(){
 			data : {
 				action : "sync_customer",
 				offset : offset,
-				limit : set_limit(),
+				limit : LIMIT,
 				count_order : sessionStorage.getItem('avada_woo_count_order')
 			},
 		}).done(function(res){
@@ -114,7 +119,7 @@ jQuery(document).ready(function(){
 			console.log(res)
 
 			if(!res.data.end){
-				sync_customer(parseInt(res.data.offset) + set_limit())
+				sync_customer(parseInt(res.data.offset) + LIMIT)
 				process_bar(parseInt(res.data.offset))
 			} else {
 				Swal.fire(
@@ -192,14 +197,14 @@ jQuery(document).ready(function(){
 			data : {
 				action : "sync_order",
 				offset : offset,
-				limit : set_limit(),
+				limit : LIMIT,
 				count_order : sessionStorage.getItem('avada_woo_count_order')
 			}
 		}).done(function(res){
 			console.log(res)
 
 			if(!res.data.end){
-				sync_order(parseInt(res.data.offset) + set_limit())
+				sync_order(parseInt(res.data.offset) + LIMIT)
 				process_bar(parseInt(res.data.offset))
 			} else {
 				Swal.fire(
@@ -228,7 +233,7 @@ jQuery(document).ready(function(){
 		var count_order = sessionStorage.getItem('avada_woo_count_order')
 
 		if(offset == 0) {
-			offset = count_order / set_limit()
+			offset = count_order / LIMIT
 		}
 
 		if(offset > count_order) {
@@ -250,40 +255,4 @@ jQuery(document).ready(function(){
 		
 	}
 
-	function set_limit() {
-		return 10;
-	}
-
-	// jQuery('#avada_woo_enable').change(function() {
-
-	// 	var avada_woo_app_id = jQuery('#avada_woo_app_id').val().trim()
-	// 	var avada_woo_secret_key = jQuery('#avada_woo_secret_key').val().trim()	
-
-	// 	if(this.checked) {
-	// 		loading_snipper()
-	// 		jQuery.ajax({
-	// 			url : 'options.php',
-	// 			type : 'post',
-	// 			dataType : 'json',
-	// 			data : {
-	// 				option_page: 'avada_woo_connection',
-	// 				action: 'update',
-	// 				_wpnonce: jQuery('#_wpnonce').val().trim(),
-	// 				_wp_http_referer: '/wp-admin/options-general.php?page=avada-woo',
-	// 				avada_woo_connection: {
-	// 					'avada_woo_enable' : 1,
-	// 					'avada_woo_app_id' : avada_woo_app_id,
-	// 					'avada_woo_secret_key' : avada_woo_secret_key
-	// 				}
-	// 			},
-	// 			success(res) {
-	// 				loading_snipper(false)
-	// 				console.log(res)
-	// 			},
-	// 			error(jqXHR, textStatus, errorThrown){
-	// 				console.log( 'The following error occured: ' + textStatus, errorThrown );
-	// 			}
-	// 		})
-	// 	}
-	// });
 })
