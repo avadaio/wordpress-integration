@@ -232,15 +232,15 @@ jQuery(document).ready(function(){
 
 		var count_order = sessionStorage.getItem('avada_woo_count_order')
 
-		if(offset == 0) {
-			offset = count_order / LIMIT
-		}
-
 		if(offset > count_order) {
 			offset = count_order
 		}
 
 		var width = Math.round((offset / count_order) * 100)
+
+		if(offset == 0) {
+			width = 1
+		}
 
 		if(width > 100) {
 			width = 100
