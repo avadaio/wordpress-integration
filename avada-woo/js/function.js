@@ -71,7 +71,7 @@ jQuery(document).ready(function(){
 
 				loading_snipper()
 
-				var elem = document.getElementById("myBar");
+				var elem = document.getElementById("avada_bar");
 				elem.style.width = "0%";
 				elem.innerHTML = "0%";
 
@@ -153,7 +153,7 @@ jQuery(document).ready(function(){
 
 				loading_snipper()
 
-				var elem = document.getElementById("myBar");
+				var elem = document.getElementById("avada_bar");
 				elem.style.width = "0%";
 				elem.innerHTML = "0%";
 
@@ -241,7 +241,7 @@ jQuery(document).ready(function(){
 			width = 100
 		}
 
-		var elem = document.getElementById("myBar");
+		var elem = document.getElementById("avada_bar");
 
 		if(width <= 100) {
 			elem.style.width = width + "%";

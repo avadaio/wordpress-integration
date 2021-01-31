@@ -367,21 +367,12 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				
 				if($offset <= $count_order) {
 
-					// $query = new WC_Order_Query(array(
-					// 	'limit'   => $limit,
-					// 	'offset'  => $offset,
-					// 	'orderby' => 'date',
-					// 	'order'   => 'DESC',
-					// 	'return'  => 'ids',
-					// ));
-					// $orders = $query->get_orders();
-
 					$url = "https://app.avada.io/app/api/v1/customers";
 					$ch = curl_init($url);
 
 					$response = '';
 					
-					$orders = self::get_all_orders();
+					$orders = self::get_all_orders($limit, $offset);
 
 					foreach($orders as $order_id) {
 
@@ -392,10 +383,10 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 							// order count
 							$sql = "SELECT * FROM {$wpdb->prefix}posts p
-							    INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
-							    WHERE p.post_type = 'shop_order'
-							    AND pm.meta_key = '_billing_email'
-							    AND pm.meta_value = '{$order_detail['billing']['email']}'";
+								INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
+								WHERE p.post_type = 'shop_order'
+								AND pm.meta_key = '_billing_email'
+								AND pm.meta_value = '{$order_detail['billing']['email']}'";
 
 							$list_order = $wpdb->get_results($sql, ARRAY_A);
 							
@@ -411,12 +402,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 							// total spent
 							$total_spent = 0;
 							if($orders_count > 0) {
-								foreach($list_order as $item) {
-									if($item['post_status'] == 'wc-completed') {
-										$order = new WC_Order($item['ID']);
-					                	$total_spent += $order->get_total();
-									}
-								}
+								
+								$sql = "SELECT SUM(meta_value) FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
+
+								$total_spent = $wpdb->get_var($sql);
+
 							}
 
 							$data_json = 
@@ -494,16 +484,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				if($offset <= $count_order) {
 
-					// $query = new WC_Order_Query(array(
-					// 	'limit'   => $limit ,
-					// 	'offset'  => $offset,
-					// 	'orderby' => 'date',
-					// 	'order'   => 'DESC',
-					// 	'return'  => 'ids'
-					// ));
-					// $orders = $query->get_orders();
-
-					$orders = self::get_all_orders();
+					$orders = self::get_all_orders($limit, $offset);
 
 					$data_array = [];
 					foreach($orders as $order_id) {
@@ -621,7 +602,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			{
 				global $wpdb;
 
-				// $sql = "SELECT COUNT(*) FROM {$wpdb->prefix}posts WHERE post_type = 'shop_order'";
 				$sql = "SELECT COUNT(*) FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email'";
 
 				$sum_order = $wpdb->get_var($sql);
@@ -629,12 +609,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				wp_send_json_success($sum_order);
 			}
 
-			private static function get_all_orders()
+			private static function get_all_orders($limit = 10, $offset = 0)
 			{
 				global $wpdb;
 
-				// $sql = "SELECT COUNT(*) FROM {$wpdb->prefix}posts WHERE post_type = 'shop_order'";
-				$sql = "SELECT p.ID FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email'";
+				$sql = "SELECT p.ID FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email' LIMIT $offset, $limit";
 
 				$orders = $wpdb->get_results($sql, ARRAY_A);
 
@@ -652,12 +631,12 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 	// Webhook Sync Order
 	add_action('woocommerce_thankyou','webhook_sync_order');
 	function webhook_sync_order($order_id){
-	    if (!$order_id )
-        	return;
+		if (!$order_id )
+			return;
 
-       	$order = wc_get_order($order_id);
+		$order = wc_get_order($order_id);
 
-       	if(isset($order) && !is_null($order) && !empty($order) && $order->get_billing_email() && !empty($order->get_billing_email()) && !is_null($order->get_billing_email()) && strlen($order->get_billing_email()) > 0) {
+		if(isset($order) && !is_null($order) && !empty($order) && $order->get_billing_email() && !empty($order->get_billing_email()) && !is_null($order->get_billing_email()) && strlen($order->get_billing_email()) > 0) {
 
 			$order_data = [
 				"id"       => $order->get_id(),
@@ -745,22 +724,22 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 	// Webhook Sync Customer
 	add_action('woocommerce_thankyou','webhook_sync_customer');
 	function webhook_sync_customer($order_id){
-	    if (!$order_id )
-        	return;
+		if (!$order_id )
+			return;
 
-        global $wpdb; 
+		global $wpdb; 
 
-       	$order_data = wc_get_order($order_id);
+		$order_data = wc_get_order($order_id);
 		$order_detail = $order_data->get_data();
 
 		if(isset($order_detail['billing']['email']) && strlen($order_detail['billing']['email']) > 0) {
 
 			// order count
 			$sql = "SELECT * FROM {$wpdb->prefix}posts p
-			    INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
-			    WHERE p.post_type = 'shop_order'
-			    AND pm.meta_key = '_billing_email'
-			    AND pm.meta_value = '{$order_detail['billing']['email']}'";
+				INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
+				WHERE p.post_type = 'shop_order'
+				AND pm.meta_key = '_billing_email'
+				AND pm.meta_value = '{$order_detail['billing']['email']}'";
 
 			$list_order = $wpdb->get_results($sql, ARRAY_A);
 			
@@ -776,12 +755,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			// total spent
 			$total_spent = 0;
 			if($orders_count > 0) {
-				foreach($list_order as $item) {
-					if($item['post_status'] == 'wc-completed') {
-						$order = new WC_Order($item['ID']);
-	                	$total_spent += $order->get_total();
-					}
-				}
+				
+				$sql = "SELECT SUM(meta_value) FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
+
+				$total_spent = $wpdb->get_var($sql);
+
 			}
 
 			$data_json = 
@@ -833,15 +811,15 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 	if(!function_exists('write_log')) {
 
-	    function write_log($log) {
-	        if (true === WP_DEBUG) {
-	            if (is_array($log) || is_object($log)) {
-	                error_log(print_r($log, true));
-	            } else {
-	                error_log($log);
-	            }
-	        }
-	    }
+		function write_log($log) {
+			if (true === WP_DEBUG) {
+				if (is_array($log) || is_object($log)) {
+					error_log(print_r($log, true));
+				} else {
+					error_log($log);
+				}
+			}
+		}
 
 	}
 }

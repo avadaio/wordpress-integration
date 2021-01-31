@@ -5,21 +5,6 @@
 
 <br>
 
-<div id="myProgress">
-	<div id="myBar"></div>
+<div id="avada_process">
+	<div id="avada_bar"></div>
 </div>
-
-<style>
-	#myProgress {
-		margin-top: 10px;
-	}
-
-	#myBar {
-		width: 0%;
-		height: 30px;
-		background-color: #007cba;
-		text-align: center; /* To center it horizontally (if you want) */
-		line-height: 30px; /* To center it vertically */
-		color: white;
-	}
-</style>

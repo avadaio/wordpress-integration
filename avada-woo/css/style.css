@@ -172,3 +172,16 @@ div.loading_snipper {
 	-o-animation: uil-ring-anim 1s linear infinite;
 	animation: uil-ring-anim 1s linear infinite;
 }
+
+#avada_process {
+	margin-top: 10px;
+}
+
+#avada_bar {
+	width: 0%;
+	height: 30px;
+	background-color: #007cba;
+	text-align: center; /* To center it horizontally (if you want) */
+	line-height: 30px; /* To center it vertically */
+	color: white;
+}
