@@ -60,19 +60,15 @@ function webhook_sync_order($order_id){
 
 		$order_data['line_items'] = $line_items;
 
-		if(!is_null($order_data) && !empty($order_data) && count($order_data) > 0) {
-			$data_array[] = $order_data;
-		}
-
-		$data_array = json_encode($data_array);
-		$data = '{"data": '.$data_array.'}';
+		$order_data = json_encode($order_data);
+		$data = '{"data": '.$order_data.'}';
 
 		$option_connection = get_option('avada_woo_connection');
 
 		$app_id = $option_connection['avada_woo_app_id'];
 		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 		
-		$url = "https://app.avada.io/app/api/v1/orders/bulk";
+		$url = "https://app.avada.io/app/api/v1/orders";
 		$ch = curl_init($url);
 
 		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
