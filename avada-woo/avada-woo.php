@@ -1,16 +1,16 @@
 <?php
 /*
 Plugin Name: Avada Woo
-Plugin URI: https://jupitermedia.vn
+Plugin URI: https://avada.io
 Description: Kết nối Avada vs Woocommerce
 Version: 1.0
-Author: jupitermedia
-Author URI: https://jupitermedia.vn
+Author: avada.io
+Author URI: https://avada.io
 Text Domain: avada-woo
 */
 defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
 if(!function_exists('add_action')) {
-	echo 'Hi there!  I\'m just a plugin, not much I can do when called directly.';
+	echo "Hi there!  I'm just a plugin, not much I can do when called directly.";
 	exit;
 }
 
@@ -28,8 +28,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			/**
 			 * Array of custom settings/options
 			**/
-			private $option_connection;
-			private $option_woo_auth;
+			public $option_connection;
+			public $option_woo_auth;
 			/**
 			 * Constructor
 			 */
@@ -40,7 +40,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				add_action('admin_menu', [$this, 'add_settings_page']);
 				add_action('admin_init', [$this, 'page_avada_woo_connection']);
-				add_action('admin_init', [$this, 'page_avada_woo_auth']);
 				add_action('admin_enqueue_scripts', function(){
 					wp_register_script('avada-woo-js', AVADA_WOO_PLUGIN_URL . 'js/function.js');
 
@@ -53,10 +52,21 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					wp_enqueue_style('avada-woo-css');
 				});
 
+				add_action('wp_enqueue_scripts', function(){
+					wp_register_script('avada-woo-js', AVADA_WOO_PLUGIN_URL . 'js/checkout.js', array('jquery'));
+					wp_localize_script('avada-woo-js', 'avada_woo', [
+						'url' => admin_url('admin-ajax.php')
+					]);
+					wp_enqueue_script('avada-woo-js');
+				});
+
+				register_activation_hook(__FILE__, [$this, 'avada_create_table']);
+
 				add_action('wp_ajax_check_connection', [$this, 'check_connection']);
 				add_action('wp_ajax_sync_customer', [$this, 'sync_customer']);
 				add_action('wp_ajax_sync_order', [$this, 'sync_order']);
 				add_action('wp_ajax_count_order', [$this, 'count_order']);
+				add_action('wp_ajax_avada_checkout', [$this, 'avada_checkout']);
 			}
 
 			/**
@@ -105,7 +115,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					<div class="tab-content">
 						<?php switch($tab) :
 							case 'woocommerce':
-							
 								if(isset($this->option_connection['avada_woo_enable'])):
 									require(AVADA_WOO_PLUGIN_DIR . 'views/tab_woo.php');
 								endif;
@@ -188,11 +197,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				if( isset( $input['avada_woo_enable'] ) )
 					$sanitized_input['avada_woo_enable'] = sanitize_text_field( $input['avada_woo_enable'] );
 
-				if( isset( $input['avada_woo_username'] ) )
-					$sanitized_input['avada_woo_username'] = sanitize_text_field( $input['avada_woo_username'] );
-
-				if( isset( $input['avada_woo_password'] ) )
-					$sanitized_input['avada_woo_password'] = sanitize_text_field( $input['avada_woo_password'] );
 
 				return $sanitized_input;
 			}
@@ -238,56 +242,25 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				echo "<button type='button' class='button button-info btn-test-connection'>Test Connection</button>";
 			}
 
-			public function page_avada_woo_auth() {
-				register_setting(
-					'avada_woo_auth', // Option group
-					'avada_woo_auth', // Option name
-					array( $this, 'sanitize' ) // Sanitize
-				);
+			public function avada_create_table()
+			{
+				global $wpdb;
+   				$table_name = $wpdb->prefix . "avada_cart_abandonment";
+   				$charset_collate = $wpdb->get_charset_collate();
 
-				add_settings_section(
-					'avada_woo_auth', // ID
-					'', // Title
-					'', // Callback
-					'avada-woo-auth' // Page
-				);
+				$sql = "CREATE TABLE $table_name (
+					id int(50) NOT NULL AUTO_INCREMENT,
+					email varchar(50) NOT NULL,
+					cart_content text NOT NULL,
+					customer_info text DEFAULT NULL,
+					session_id varchar(100) DEFAULT '' NOT NULL,
+					link text DEFAULT NULL,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+					PRIMARY KEY (id)
+				) $charset_collate;";
 
-				add_settings_field(
-					'avada_woo_username', // ID
-					'Username', // Title 
-					array( $this, 'username_woo_html' ), // Callback
-					'avada-woo-auth', // Page         
-					'avada_woo_auth'
-				);
-
-				add_settings_field(
-					'avada_woo_password', 
-					'Password', 
-					array( $this, 'password_woo_html' ), 
-					'avada-woo-auth',
-					'avada_woo_auth'
-				);
-
-			}
-
-			/** 
-			 * HTML for Username Woo input
-			 */
-			public function username_woo_html() {
-				printf(
-					'<input type="text" style="width:300px" id="avada_woo_username" name="avada_woo_auth[avada_woo_username]" value="%s" placeholder="Username Woo API" />',
-					isset( $this->option_woo_auth['avada_woo_username'] ) ? esc_attr( $this->option_woo_auth['avada_woo_username']) : ''
-				);
-			}
-
-			/** 
-			 * HTML for Password Woo input
-			 */
-			public function password_woo_html() {
-				printf(
-					'<input type="text" style="width:300px" id="avada_woo_password" name="avada_woo_auth[avada_woo_password]" value="%s" placeholder="Password Woo API" />',
-					isset( $this->option_woo_auth['avada_woo_password'] ) ? esc_attr( $this->option_woo_auth['avada_woo_password']) : ''
-				);
+				require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+				dbDelta( $sql );
 			}
 
 			public function check_connection() {
@@ -297,19 +270,38 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				if(!is_null($avada_woo_app_id) && !is_null($avada_woo_secret_key)) {
 					$avada_woo_value = ['avada_woo_app_id' => $avada_woo_app_id, 'avada_woo_secret_key' => $avada_woo_secret_key];
+					
+					$data_store = '{
+						"data": {
+							"name": "'.get_option('woocommerce_email_from_name').'",
+							"phone" : "",
+							"countryName": "'.get_option('woocommerce_default_country').'",
+							"countryCode": "'.get_option('woocommerce_default_country').'",
+							"city": "'.get_option('woocommerce_store_city').'",
+							"timezone": "'.get_option('timezone_string').'",
+							"zip": "'.get_option('woocommerce_store_postcode').'",
+							"currency": "'.get_option('woocommerce_currency').'",
+							"address1": "'.get_option('woocommerce_store_address').'",
+							"address2": "'.get_option('woocommerce_store_address_2').'",
+							"email": "'.get_option('woocommerce_stock_email_recipient').'",
+							"source": "woocommerce"
+						}
+					}';
+
 					$app_id = $avada_woo_value['avada_woo_app_id'];
-					$hmac_sha256 = base64_encode(hash_hmac('sha256', "{}", $avada_woo_value['avada_woo_secret_key'], true));
+					$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_store, $avada_woo_secret_key, true));
 
 					$header = [
 						"Content-Type: application/json",
 						"x-emailmarketing-app-id: {$app_id}",
-						"X-EmailMarketing-Connection-Test: true",
-						"x-emailmarketing-hmac-sha256: {$hmac_sha256}"
+						"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+						"X-EmailMarketing-Wordpress: true"
 					];
 
-					$result = self::curl('https://app.avada.io/app/api/v1/customers', 'POST', $header, [], '{}');
+					$result = self::curl('https://app.avada.io/app/api/v1/connects', 'POST', $header, $data_store);
 
 					if(isset($result['success']) && $result['success'] == 1) {
+
 						wp_send_json_success([
 							'status' => true,
 							'message' => 'Kết nối với Avada thành công'
@@ -324,7 +316,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 			}
 
-			private static function curl($url = null, $method = 'GET', $header = [], $auth = [], $data = '') {
+			private static function curl($url = null, $method = 'GET', $header = [], $data = '') {
 				$curl = curl_init();
 
 				curl_setopt($curl, CURLOPT_URL, $url);
@@ -341,10 +333,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				curl_setopt($curl, CURLOPT_MAXREDIRS, 10);
 				curl_setopt($curl, CURLOPT_TIMEOUT, 0);
 				curl_setopt($curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-
-				if(count($auth) > 0) {
-					curl_setopt($curl, CURLOPT_USERPWD, $auth['username'] . ":" . $auth['password']);
-				}
 				
 				$response = curl_exec($curl);
 				$response = json_decode($response, true);
@@ -512,7 +500,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 							];
 
 							$line_items = [];
-							foreach($order->get_items() as $item_id => $item) {
+							foreach($order->get_items() as $item) {
 								$product = $item->get_product();
 								$product_id = "";
 								$product_sku = "";
@@ -591,8 +579,125 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 					curl_close($ch);
 				}
+			}
 
-				
+			public function avada_checkout()
+			{
+				$data_customer = isset($_POST['data_customer']) ? $_POST['data_customer'] : null;
+				$site_url = isset($_POST['site_url']) ? $_POST['site_url'] : null;
+
+				if(!is_null($data_customer)) {
+					
+					$customer_info = [
+						'avada_billing_email'      => $data_customer['avada_billing_email'],
+						'avada_billing_last_name'  => $data_customer['avada_billing_last_name'],
+						'avada_billing_first_name' => $data_customer['avada_billing_first_name'],
+						'avada_billing_phone'      => $data_customer['avada_billing_phone'],
+						'avada_billing_address_1'  => $data_customer['avada_billing_address_1'],
+						'avada_billing_city'       => $data_customer['avada_billing_city'],
+						'avada_billing_country'    => $data_customer['avada_billing_country']
+					];
+
+					$link = $this->avada_insert_table($site_url, $customer_info);
+
+					$order_data = [
+						"id"                     => 0,
+						"abandoned_checkout_url" => isset($link) ? $link : null,
+						"email"                  => $data_customer['avada_billing_email'],
+						"created_at"             => date('Y-m-d H:i:s'),
+						"updated_at"             => date('Y-m-d H:i:s'),
+						"completed_at"           => date('Y-m-d H:i:s'),
+						"phone"                  => $data_customer['avada_billing_phone'],
+						"customer_locale"        => "",
+						"subtotal_price"         => WC()->cart->subtotal,
+						"total_tax"              => WC()->cart->get_total_tax(),
+						"total_price"            => WC()->cart->subtotal,
+						"currency"               => get_woocommerce_currency(),
+						"customer" => [
+							"id"         => 0,
+							"email"      => $data_customer['avada_billing_email'],
+							"name"       => $data_customer['avada_billing_first_name'],
+							"first_name" => $data_customer['avada_billing_first_name'],
+							"last_name"  => $data_customer['avada_billing_last_name']
+						],
+						"shipping_address" => [
+							"name"          => $data_customer['avada_billing_first_name'],
+							"last_name"     => $data_customer['avada_billing_last_name'],
+							"phone"         => $data_customer['avada_billing_phone'],
+							"company"       => "",
+							"country_code"  => $data_customer['avada_billing_country'],
+							"zip"           => "",
+							"address1"      => $data_customer['avada_billing_address_1'],
+							"address2"      => "",
+							"city"          => $data_customer['avada_billing_city'],
+							"province_code" => "",
+							"province"      => ""
+						]
+					];
+
+					$cart = WC()->cart->get_cart();
+					$line_items = [];
+					foreach($cart as $item_id => $item) {
+						$line_items[] = [
+							"type"          => "downloadable",
+							"title"         => $item['data']->get_title(),
+							"price"         => $item['data']->get_price(),
+							"quantity"      => $item['quantity'],
+							"sku"           => $item['data']->get_sku(),
+							"product_id"    => $item['data']->get_id(),
+							"image"         => wp_get_attachment_url($item['data']->get_image_id()),
+							"frontend_link" => $item['data']->get_permalink(),
+							"line_price"    => $item['data']->get_price(),
+							"bundle_items"  => []
+						];
+					}
+
+					$order_data['line_items'] = $line_items;
+					$order_data = json_encode($order_data);
+
+					$data = '{"data": '.$order_data.'}';
+
+					$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $this->option_connection['avada_woo_secret_key'], true));
+					$app_id = $this->option_connection['avada_woo_app_id'];
+
+					$url = "https://app.avada.io/app/api/v1/checkouts";
+					$ch = curl_init($url);
+
+					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+					curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+					curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+					curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+						"Content-Type: application/json",
+						"x-emailmarketing-app-id: {$app_id}",
+						"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+						"X-EmailMarketing-Wordpress: true"
+					));
+
+					$response = curl_exec($ch);
+					wp_send_json_success($response);
+				}
+			}
+
+			public function avada_insert_table($site_url = '', $customer_info = null)
+			{
+				global $wpdb;
+
+				$table_name = $wpdb->prefix."avada_cart_abandonment";
+
+			    $cart = serialize(WC()->cart->get_cart());
+			    $time = time();
+			    $created_at = get_date_from_gmt(date('Y-m-d H:i:s', $time));
+			    $session_id = md5($cart . $time);
+			    $email = $customer_info['avada_billing_email'];
+			    $customer_info = serialize($customer_info);
+
+			    $link = $site_url .'?avada_token_cart='.base64_encode($session_id);
+
+			    $insert_query = "INSERT INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
+		    					VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$created_at."', '".$link."')"; 
+				$insertResult = $wpdb->query($insert_query); 
+
+				if($insertResult) return $link;
 			}
 
 			public function count_order()
@@ -619,10 +724,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 		}
 
-		if(is_admin()) {
-			new Avada_Woo();
-		}
-
+		new Avada_Woo();
+		
 	}
 
 	require_once('webhook.php');
