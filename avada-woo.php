@@ -253,14 +253,15 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					email varchar(50) NOT NULL,
 					cart_content text NOT NULL,
 					customer_info text DEFAULT NULL,
-					session_id varchar(100) DEFAULT '' NOT NULL,
+					session_id varchar(100) DEFAULT '' NOT NULL UNIQUE,
 					link text DEFAULT NULL,
 					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 					PRIMARY KEY (id)
 				) $charset_collate;";
 
-				require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-				dbDelta( $sql );
+				require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+				dbDelta($sql);
 			}
 
 			public function check_connection() {
@@ -583,53 +584,61 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 			public function avada_checkout()
 			{
+				$session_id         = WC()->session->get('avada_session_id');
+				$avada_cart_aban_id = WC()->session->get('avada_cart_aban_id');
+
 				$data_customer = isset($_POST['data_customer']) ? $_POST['data_customer'] : null;
 				$site_url = isset($_POST['site_url']) ? $_POST['site_url'] : null;
 
 				if(!is_null($data_customer)) {
 					
 					$customer_info = [
-						'avada_billing_email'      => $data_customer['avada_billing_email'],
-						'avada_billing_last_name'  => $data_customer['avada_billing_last_name'],
-						'avada_billing_first_name' => $data_customer['avada_billing_first_name'],
-						'avada_billing_phone'      => $data_customer['avada_billing_phone'],
-						'avada_billing_address_1'  => $data_customer['avada_billing_address_1'],
-						'avada_billing_city'       => $data_customer['avada_billing_city'],
-						'avada_billing_country'    => $data_customer['avada_billing_country']
+						'avada_billing_email'      => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
+						'avada_billing_last_name'  => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null,
+						'avada_billing_first_name' => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+						'avada_billing_phone'      => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
+						'avada_billing_address_1'  => isset($data_customer['avada_billing_address_1']) ? $data_customer['avada_billing_address_1'] : null,
+						'avada_billing_city'       => isset($data_customer['avada_billing_city']) ? $data_customer['avada_billing_city'] : null,
+						'avada_billing_country'    => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
 					];
 
-					$link = $this->avada_insert_table($site_url, $customer_info);
+					if($session_id && $avada_cart_aban_id) {
+						$result = $this->avada_insert_table($site_url, $customer_info, $session_id, $avada_cart_aban_id);
+					} else {
+						$result = $this->avada_insert_table($site_url, $customer_info);
+					}
 
 					$order_data = [
-						"id"                     => 0,
-						"abandoned_checkout_url" => isset($link) ? $link : null,
-						"email"                  => $data_customer['avada_billing_email'],
+						"id"                     => isset($result['id']) ? $result['id'] : null,
+						"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
+						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 						"created_at"             => date('Y-m-d H:i:s'),
 						"updated_at"             => date('Y-m-d H:i:s'),
 						"completed_at"           => date('Y-m-d H:i:s'),
-						"phone"                  => $data_customer['avada_billing_phone'],
+						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 						"customer_locale"        => "",
 						"subtotal_price"         => WC()->cart->subtotal,
 						"total_tax"              => WC()->cart->get_total_tax(),
 						"total_price"            => WC()->cart->subtotal,
 						"currency"               => get_woocommerce_currency(),
+						"presentment_currency"	 => get_woocommerce_currency(),
 						"customer" => [
 							"id"         => 0,
-							"email"      => $data_customer['avada_billing_email'],
-							"name"       => $data_customer['avada_billing_first_name'],
-							"first_name" => $data_customer['avada_billing_first_name'],
-							"last_name"  => $data_customer['avada_billing_last_name']
+							"email"      => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
+							"name"       => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+							"first_name" => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+							"last_name"  => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null
 						],
 						"shipping_address" => [
-							"name"          => $data_customer['avada_billing_first_name'],
-							"last_name"     => $data_customer['avada_billing_last_name'],
-							"phone"         => $data_customer['avada_billing_phone'],
+							"name"          => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+							"last_name"     => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null,
+							"phone"         => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 							"company"       => "",
-							"country_code"  => $data_customer['avada_billing_country'],
+							"country_code"  => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
 							"zip"           => "",
-							"address1"      => $data_customer['avada_billing_address_1'],
+							"address1"      => isset($data_customer['avada_billing_address_1']) ? $data_customer['avada_billing_address_1'] : null,
 							"address2"      => "",
-							"city"          => $data_customer['avada_billing_city'],
+							"city"          => isset($data_customer['avada_billing_city']) ? $data_customer['avada_billing_city'] : null,
 							"province_code" => "",
 							"province"      => ""
 						]
@@ -678,26 +687,44 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				}
 			}
 
-			public function avada_insert_table($site_url = '', $customer_info = null)
+			public function avada_insert_table($site_url = '', $customer_info = null, $session_id = null, $avada_cart_aban_id = null)
 			{
 				global $wpdb;
 
-				$table_name = $wpdb->prefix."avada_cart_abandonment";
+				$table_name    = $wpdb->prefix."avada_cart_abandonment";
+				$cart          = serialize(WC()->cart->get_cart());
+				$email         = isset($customer_info['avada_billing_email']) ? $customer_info['avada_billing_email'] : null;
+				$time          = time();
+				$customer_info = serialize($customer_info);
 
-			    $cart = serialize(WC()->cart->get_cart());
-			    $time = time();
-			    $created_at = get_date_from_gmt(date('Y-m-d H:i:s', $time));
-			    $session_id = md5($cart . $time);
-			    $email = $customer_info['avada_billing_email'];
-			    $customer_info = serialize($customer_info);
+				if(!is_null($session_id) && !is_null($avada_cart_aban_id)) {
 
-			    $link = $site_url .'?avada_token_cart='.base64_encode($session_id);
+					$updated_at = get_date_from_gmt(date('Y-m-d H:i:s', $time));
+					$link        = $site_url .'?avada_token_cart='.base64_encode($session_id);
+					$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'updated_at' => $updated_at, 'link' => $link];
+					$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
 
-			    $insert_query = "INSERT INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
-		    					VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$created_at."', '".$link."')"; 
-				$insertResult = $wpdb->query($insert_query); 
+					$wpdb->update($table_name , $data_update, $data_where);
+					$id = $avada_cart_aban_id;
 
-				if($insertResult) return $link;
+				} else {
+
+					$created_at    = get_date_from_gmt(date('Y-m-d H:i:s', $time));
+					$session_id    = md5($cart . $time);
+					$link          = $site_url .'?avada_token_cart='.base64_encode($session_id);
+
+				    $insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
+			    					VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$created_at."', '".$link."')"; 
+					$insertResult = $wpdb->query($insert_query);
+					$id = $wpdb->insert_id;
+					
+				}
+
+				WC()->session->set('avada_session_id', $session_id);
+				WC()->session->set('avada_cart_aban_id', $id);
+
+				if($id) return ['link' => $link, 'id' => $id];
+			    
 			}
 
 			public function count_order()

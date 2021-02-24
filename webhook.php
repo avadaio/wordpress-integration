@@ -111,13 +111,13 @@ function avada_webhook_sync_customer($order_id){
 
 		$list_order = $wpdb->get_results($sql, ARRAY_A);
 		
-		$email = isset($order_detail['billing']['email']) ? $order_detail['billing']['email'] : '';
-		$first_name = isset($order_detail['billing']['first_name']) ? $order_detail['billing']['first_name'] : '';
-		$last_name = isset($order_detail['billing']['last_name']) ? $order_detail['billing']['last_name'] : '';
-		$phone = isset($order_detail['billing']['phone']) ? $order_detail['billing']['phone'] : 0;
-		$country = isset($order_detail['billing']['country']) ? $order_detail['billing']['country'] : '';
-		$city = isset($order_detail['billing']['city']) ? $order_detail['billing']['city'] : '';
-		$address = isset($order_detail['billing']['address_1']) ? $order_detail['billing']['address_1'] : '';
+		$email        = isset($order_detail['billing']['email']) ? $order_detail['billing']['email'] : '';
+		$first_name   = isset($order_detail['billing']['first_name']) ? $order_detail['billing']['first_name'] : '';
+		$last_name    = isset($order_detail['billing']['last_name']) ? $order_detail['billing']['last_name'] : '';
+		$phone        = isset($order_detail['billing']['phone']) ? $order_detail['billing']['phone'] : 0;
+		$country      = isset($order_detail['billing']['country']) ? $order_detail['billing']['country'] : '';
+		$city         = isset($order_detail['billing']['city']) ? $order_detail['billing']['city'] : '';
+		$address      = isset($order_detail['billing']['address_1']) ? $order_detail['billing']['address_1'] : '';
 		$orders_count = isset($list_order) ? count($list_order) : 0;
 
 		// total spent
@@ -341,8 +341,10 @@ function avada_restore_cart_abandonment() {
 			$_POST['billing_phone']      = sanitize_text_field($customer_info['avada_billing_phone']);
 			$_POST['billing_email']      = sanitize_email($result->email);
 			$_POST['billing_city']       = sanitize_text_field($customer_info['avada_billing_city']);
+			$_POST['billing_address_1']  = sanitize_text_field($customer_info['avada_billing_address_1']);
 			$_POST['billing_country']    = sanitize_text_field($customer_info['avada_billing_country']);
 		}
 	}
 }
+
 ?>
