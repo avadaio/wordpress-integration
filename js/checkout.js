@@ -1,7 +1,7 @@
 (function($) {
 	$(document).ready(function(){
-		$('#billing_email').focusout(function(){
-			var avada_billing_email = $(this).val().trim()
+		$('#billing_email, #billing_last_name, #billing_first_name, #billing_phone, #billing_address_1, #billing_city, #billing_country').focusout(function(){
+			var avada_billing_email = $('#billing_email').val().trim()
 			if(validateEmail(avada_billing_email)) {
 				var avada_billing_last_name  = $('#billing_last_name').val().trim()
 				var avada_billing_first_name = $('#billing_first_name').val().trim()

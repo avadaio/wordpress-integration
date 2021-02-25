@@ -584,9 +584,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 			public function avada_checkout()
 			{
-				$session_id         = WC()->session->get('avada_session_id');
-				$avada_cart_aban_id = WC()->session->get('avada_cart_aban_id');
-
 				$data_customer = isset($_POST['data_customer']) ? $_POST['data_customer'] : null;
 				$site_url = isset($_POST['site_url']) ? $_POST['site_url'] : null;
 
@@ -602,19 +599,15 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						'avada_billing_country'    => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
 					];
 
-					if($session_id && $avada_cart_aban_id) {
-						$result = $this->avada_insert_table($site_url, $customer_info, $session_id, $avada_cart_aban_id);
-					} else {
-						$result = $this->avada_insert_table($site_url, $customer_info);
-					}
-
+					$result = $this->avada_insert_table($site_url, $customer_info);
+					
 					$order_data = [
 						"id"                     => isset($result['id']) ? $result['id'] : null,
 						"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
-						"created_at"             => date('Y-m-d H:i:s'),
-						"updated_at"             => date('Y-m-d H:i:s'),
-						"completed_at"           => date('Y-m-d H:i:s'),
+						"created_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+						"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+						"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
 						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 						"customer_locale"        => "",
 						"subtotal_price"         => WC()->cart->subtotal,
@@ -687,19 +680,21 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				}
 			}
 
-			public function avada_insert_table($site_url = '', $customer_info = null, $session_id = null, $avada_cart_aban_id = null)
+			public function avada_insert_table($site_url = '', $customer_info = null)
 			{
 				global $wpdb;
 
 				$table_name    = $wpdb->prefix."avada_cart_abandonment";
 				$cart          = serialize(WC()->cart->get_cart());
 				$email         = isset($customer_info['avada_billing_email']) ? $customer_info['avada_billing_email'] : null;
-				$time          = time();
 				$customer_info = serialize($customer_info);
+
+				$session_id         = WC()->session->get('avada_session_id');
+				$avada_cart_aban_id = WC()->session->get('avada_cart_aban_id');
 
 				if(!is_null($session_id) && !is_null($avada_cart_aban_id)) {
 
-					$updated_at = get_date_from_gmt(date('Y-m-d H:i:s', $time));
+					$updated_at = get_date_from_gmt(date('Y-m-d H:i:s', time()));
 					$link        = $site_url .'?avada_token_cart='.base64_encode($session_id);
 					$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'updated_at' => $updated_at, 'link' => $link];
 					$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
@@ -709,8 +704,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				} else {
 
-					$created_at    = get_date_from_gmt(date('Y-m-d H:i:s', $time));
-					$session_id    = md5($cart . $time);
+					$created_at    = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+					$session_id    = md5($cart . time());
 					$link          = $site_url .'?avada_token_cart='.base64_encode($session_id);
 
 				    $insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
@@ -751,10 +746,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 		}
 
-		new Avada_Woo();
+		$avada_woo = new Avada_Woo();
 		
+		require_once('webhook.php');
+		require_once('helper.php');
+
 	}
 
-	require_once('webhook.php');
-	require_once('helper.php');
 }

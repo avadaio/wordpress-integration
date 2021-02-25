@@ -308,6 +308,15 @@ function avada_script_thankyou($order_id) {
 			</script>
 		<?php
 	endif;
+
+	$session_id = WC()->session->get('avada_session_id');
+
+	if(!is_null($session_id)) {
+		global $wpdb;
+		$table_name = $wpdb->prefix."avada_cart_abandonment";
+		$wpdb->delete($table_name, ['session_id' => $session_id]);
+		avada_unset_session();
+	}
 }
 
 add_filter('wp', 'avada_restore_cart_abandonment', 10);
@@ -316,9 +325,14 @@ function avada_restore_cart_abandonment() {
 	$avada_token_cart = isset($_GET['avada_token_cart']) ? $_GET['avada_token_cart'] : null;
 	if(!is_null($avada_token_cart)) {
 		$session_id = base64_decode($avada_token_cart);
-		$sql = "SELECT email, cart_content, customer_info FROM {$wpdb->prefix}avada_cart_abandonment WHERE session_id = '{$session_id}'";
+		$sql = "SELECT id, email, cart_content, customer_info, session_id FROM {$wpdb->prefix}avada_cart_abandonment WHERE session_id = '{$session_id}'";
 		$result = $wpdb->get_row($sql);
-		if($result) {
+
+		if(!is_null($result)) {
+
+			WC()->session->set('avada_session_id', $result->session_id);
+			WC()->session->set('avada_cart_aban_id', $result->id);
+
 			$cart_content = unserialize($result->cart_content);
 			if($cart_content) {
 				WC()->cart->empty_cart();
@@ -336,15 +350,171 @@ function avada_restore_cart_abandonment() {
 
 			$customer_info = unserialize($result->customer_info);
 
-			$_POST['billing_first_name'] = sanitize_text_field($customer_info['avada_billing_first_name']);
-			$_POST['billing_last_name']  = sanitize_text_field($customer_info['avada_billing_last_name']);
-			$_POST['billing_phone']      = sanitize_text_field($customer_info['avada_billing_phone']);
-			$_POST['billing_email']      = sanitize_email($result->email);
-			$_POST['billing_city']       = sanitize_text_field($customer_info['avada_billing_city']);
-			$_POST['billing_address_1']  = sanitize_text_field($customer_info['avada_billing_address_1']);
-			$_POST['billing_country']    = sanitize_text_field($customer_info['avada_billing_country']);
+			if(isset($customer_info['avada_billing_first_name'])) {
+				$_POST['billing_first_name'] = sanitize_text_field($customer_info['avada_billing_first_name']);
+			}
+
+			if(isset($customer_info['avada_billing_last_name'])) {
+				$_POST['billing_last_name'] = sanitize_text_field($customer_info['avada_billing_last_name']);
+			}
+
+			if(isset($customer_info['avada_billing_phone'])) {
+				$_POST['billing_phone'] = sanitize_text_field($customer_info['avada_billing_phone']);
+			}
+			
+			if(isset($result->email) && !empty($result->email) && !is_null($result->email)) {
+				$_POST['billing_email'] = sanitize_email($result->email);
+			}
+
+			if(isset($customer_info['avada_billing_city'])) {
+				$_POST['billing_city'] = sanitize_text_field($customer_info['avada_billing_city']);
+			}
+
+			if(isset($customer_info['avada_billing_address_1'])) {
+				$_POST['billing_address_1'] = sanitize_text_field($customer_info['avada_billing_address_1']);
+			}
+
+			if(isset($customer_info['avada_billing_country'])) {
+				$_POST['billing_country'] = sanitize_text_field($customer_info['avada_billing_country']);
+			}
+		} else {
+			WC()->cart->empty_cart();
+			avada_unset_session();
+			wc_clear_notices();
 		}
 	}
+}
+
+add_action('woocommerce_add_to_cart', 'avada_create_cart_abandonment');
+function avada_create_cart_abandonment() {
+	$site_url = "http://$_SERVER[HTTP_HOST]/checkout";
+	$result = avada_insert_table($site_url, []);
+
+	$order_data = [
+		"id"                     => isset($result['id']) ? $result['id'] : null,
+		"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
+		"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
+		"created_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+		"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+		"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+		"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
+		"customer_locale"        => "",
+		"subtotal_price"         => WC()->cart->subtotal,
+		"total_tax"              => WC()->cart->get_total_tax(),
+		"total_price"            => WC()->cart->subtotal,
+		"currency"               => get_woocommerce_currency(),
+		"presentment_currency"	 => get_woocommerce_currency(),
+		"customer" => [
+			"id"         => 0,
+			"email"      => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
+			"name"       => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+			"first_name" => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+			"last_name"  => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null
+		],
+		"shipping_address" => [
+			"name"          => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
+			"last_name"     => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null,
+			"phone"         => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
+			"company"       => "",
+			"country_code"  => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
+			"zip"           => "",
+			"address1"      => isset($data_customer['avada_billing_address_1']) ? $data_customer['avada_billing_address_1'] : null,
+			"address2"      => "",
+			"city"          => isset($data_customer['avada_billing_city']) ? $data_customer['avada_billing_city'] : null,
+			"province_code" => "",
+			"province"      => ""
+		]
+	];
+
+	$cart = WC()->cart->get_cart();
+	$line_items = [];
+	foreach($cart as $item_id => $item) {
+		$line_items[] = [
+			"type"          => "downloadable",
+			"title"         => $item['data']->get_title(),
+			"price"         => $item['data']->get_price(),
+			"quantity"      => $item['quantity'],
+			"sku"           => $item['data']->get_sku(),
+			"product_id"    => $item['data']->get_id(),
+			"image"         => wp_get_attachment_url($item['data']->get_image_id()),
+			"frontend_link" => $item['data']->get_permalink(),
+			"line_price"    => $item['data']->get_price(),
+			"bundle_items"  => []
+		];
+	}
+
+	$order_data['line_items'] = $line_items;
+	$order_data = json_encode($order_data);
+
+	$data = '{"data": '.$order_data.'}';
+
+	$option_connection = get_option('avada_woo_connection');
+
+	$app_id = $option_connection['avada_woo_app_id'];
+	$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
+
+	$url = "https://app.avada.io/app/api/v1/checkouts";
+	$ch = curl_init($url);
+
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+		"Content-Type: application/json",
+		"x-emailmarketing-app-id: {$app_id}",
+		"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+		"X-EmailMarketing-Wordpress: true"
+	));
+
+	$response = curl_exec($ch);
+}
+
+// add_action('init', 'avada_unset_session');
+function avada_unset_session() {
+	WC()->session->__unset('avada_session_id');
+	WC()->session->__unset('avada_cart_aban_id');
+}
+
+function avada_insert_table($site_url = '', $customer_info = null)
+{
+	global $wpdb;
+
+	$table_name    = $wpdb->prefix."avada_cart_abandonment";
+	$cart          = serialize(WC()->cart->get_cart());
+	$email         = isset($customer_info['avada_billing_email']) ? $customer_info['avada_billing_email'] : null;
+	$customer_info = serialize($customer_info);
+
+	$session_id         = WC()->session->get('avada_session_id');
+	$avada_cart_aban_id = WC()->session->get('avada_cart_aban_id');
+
+	if(!is_null($session_id) && !is_null($avada_cart_aban_id)) {
+
+		$updated_at = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+		$link        = $site_url .'?avada_token_cart='.base64_encode($session_id);
+		$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'updated_at' => $updated_at, 'link' => $link];
+		$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
+
+		$wpdb->update($table_name , $data_update, $data_where);
+		$id = $avada_cart_aban_id;
+
+	} else {
+
+		$created_at    = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+		$session_id    = md5($cart . time());
+		$link          = $site_url .'?avada_token_cart='.base64_encode($session_id);
+
+		$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
+						VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$created_at."', '".$link."')"; 
+		$insertResult = $wpdb->query($insert_query);
+		$id = $wpdb->insert_id;
+		
+	}
+
+	WC()->session->set('avada_session_id', $session_id);
+	WC()->session->set('avada_cart_aban_id', $id);
+
+	if($id) return ['link' => $link, 'id' => $id];
+	
 }
 
 ?>
