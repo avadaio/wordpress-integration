@@ -255,8 +255,9 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					customer_info text DEFAULT NULL,
 					session_id varchar(100) DEFAULT '' NOT NULL UNIQUE,
 					link text DEFAULT NULL,
-					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+					line_items text DEFAULT NULL,
+					created_at TIMESTAMP NULL,
+					updated_at TIMESTAMP NULL,
 					PRIMARY KEY (id)
 				) $charset_collate;";
 
@@ -585,8 +586,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			public function avada_checkout()
 			{
 				$data_customer = isset($_POST['data_customer']) ? $_POST['data_customer'] : null;
-				$site_url = isset($_POST['site_url']) ? $_POST['site_url'] : null;
-
+				
 				if(!is_null($data_customer)) {
 					
 					$customer_info = [
@@ -599,7 +599,24 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						'avada_billing_country'    => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
 					];
 
-					$result = $this->avada_insert_table($site_url, $customer_info);
+					$cart = WC()->cart->get_cart();
+					$line_items = [];
+					foreach($cart as $item_id => $item) {
+						$line_items[] = [
+							"type"          => "downloadable",
+							"title"         => $item['data']->get_title(),
+							"price"         => $item['data']->get_price(),
+							"quantity"      => $item['quantity'],
+							"sku"           => $item['data']->get_sku(),
+							"product_id"    => $item['data']->get_id(),
+							"image"         => wp_get_attachment_url($item['data']->get_image_id()),
+							"frontend_link" => $item['data']->get_permalink(),
+							"line_price"    => $item['data']->get_price(),
+							"bundle_items"  => []
+						];
+					}
+
+					$result = $this->avada_insert_table($customer_info, $line_items);
 					
 					$order_data = [
 						"id"                     => isset($result['id']) ? $result['id'] : null,
@@ -607,7 +624,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 						"created_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
 						"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
-						"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+						"completed_at"           => null,
 						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 						"customer_locale"        => "",
 						"subtotal_price"         => WC()->cart->subtotal,
@@ -637,23 +654,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						]
 					];
 
-					$cart = WC()->cart->get_cart();
-					$line_items = [];
-					foreach($cart as $item_id => $item) {
-						$line_items[] = [
-							"type"          => "downloadable",
-							"title"         => $item['data']->get_title(),
-							"price"         => $item['data']->get_price(),
-							"quantity"      => $item['quantity'],
-							"sku"           => $item['data']->get_sku(),
-							"product_id"    => $item['data']->get_id(),
-							"image"         => wp_get_attachment_url($item['data']->get_image_id()),
-							"frontend_link" => $item['data']->get_permalink(),
-							"line_price"    => $item['data']->get_price(),
-							"bundle_items"  => []
-						];
-					}
-
 					$order_data['line_items'] = $line_items;
 					$order_data = json_encode($order_data);
 
@@ -680,7 +680,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				}
 			}
 
-			public function avada_insert_table($site_url = '', $customer_info = null)
+			public function avada_insert_table($customer_info = null, $line_items = null)
 			{
 				global $wpdb;
 
@@ -692,26 +692,45 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				$session_id         = WC()->session->get('avada_session_id');
 				$avada_cart_aban_id = WC()->session->get('avada_cart_aban_id');
 
-				if(!is_null($session_id) && !is_null($avada_cart_aban_id)) {
+				$checkout_url = wc_get_checkout_url();
 
-					$updated_at = get_date_from_gmt(date('Y-m-d H:i:s', time()));
-					$link        = $site_url .'?avada_token_cart='.base64_encode($session_id);
-					$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'updated_at' => $updated_at, 'link' => $link];
-					$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
+				if(!is_null($session_id)) {
 
-					$wpdb->update($table_name , $data_update, $data_where);
-					$id = $avada_cart_aban_id;
+					$row = "SELECT COUNT(*) FROM {$table_name} WHERE session_id = '{$session_id}'";
+					$check_order = $wpdb->get_var($row);
+
+					if($check_order > 0) {
+
+						$updated_at  = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+					
+						$link        = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
+						$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'link' => $link, 'line_items' => json_encode($line_items), 'updated_at' => $updated_at];
+						$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
+						
+						$wpdb->update($table_name , $data_update, $data_where);
+						$id          = $avada_cart_aban_id;
+
+					} else {
+
+						$created_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+						$session_id   = md5($cart . time());
+						$link         = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
+						
+						$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."')"; 
+						$insertResult = $wpdb->query($insert_query);
+						$id           = $wpdb->insert_id;
+
+					}
 
 				} else {
 
-					$created_at    = get_date_from_gmt(date('Y-m-d H:i:s', time()));
-					$session_id    = md5($cart . time());
-					$link          = $site_url .'?avada_token_cart='.base64_encode($session_id);
-
-				    $insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `created_at`, `link`) 
-			    					VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$created_at."', '".$link."')"; 
+					$created_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+					$session_id   = md5($cart . time());
+					$link         = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
+					
+					$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."')"; 
 					$insertResult = $wpdb->query($insert_query);
-					$id = $wpdb->insert_id;
+					$id           = $wpdb->insert_id;
 					
 				}
 
