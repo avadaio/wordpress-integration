@@ -272,7 +272,9 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				if(!is_null($avada_woo_app_id) && !is_null($avada_woo_secret_key)) {
 					$avada_woo_value = ['avada_woo_app_id' => $avada_woo_app_id, 'avada_woo_secret_key' => $avada_woo_secret_key];
-					
+						
+					$timezone = !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset');
+
 					$data_store = '{
 						"data": {
 							"name": "'.get_option('woocommerce_email_from_name').'",
@@ -280,7 +282,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 							"countryName": "'.get_option('woocommerce_default_country').'",
 							"countryCode": "'.get_option('woocommerce_default_country').'",
 							"city": "'.get_option('woocommerce_store_city').'",
-							"timezone": "'.get_option('timezone_string').'",
+							"timezone": "'.$timezone.'",
 							"zip": "'.get_option('woocommerce_store_postcode').'",
 							"currency": "'.get_option('woocommerce_currency').'",
 							"address1": "'.get_option('woocommerce_store_address').'",
@@ -392,7 +394,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 								
 								$sql = "SELECT SUM(meta_value) FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
 
-								$total_spent = $wpdb->get_var($sql);
+								$total_spent = $wpdb->get_row($sql);
 
 							}
 
@@ -495,7 +497,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 								"updated_at"       => $order->get_date_modified()->date('Y-m-d H:i:s'),
 								"order_status_url" => "",
 								"subtotal_price"   => $order->get_subtotal(),
-								"total_price"      => $order->get_subtotal(),
+								"total_price"      => $order->get_total(),
 								"total_tax"        => $order->get_total_tax(),
 								"total_weight"     => "0",
 								"total_discounts"  => "0"
@@ -617,19 +619,19 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					}
 
 					$result = $this->avada_insert_table($customer_info, $line_items);
-					
 					$order_data = [
 						"id"                     => isset($result['id']) ? $result['id'] : null,
 						"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
-						"created_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+						"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
 						"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
 						"completed_at"           => null,
+						"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
 						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 						"customer_locale"        => "",
 						"subtotal_price"         => WC()->cart->subtotal,
 						"total_tax"              => WC()->cart->get_total_tax(),
-						"total_price"            => WC()->cart->subtotal,
+						"total_price"            => WC()->cart->total,
 						"currency"               => get_woocommerce_currency(),
 						"presentment_currency"	 => get_woocommerce_currency(),
 						"customer" => [
@@ -696,27 +698,29 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				if(!is_null($session_id)) {
 
-					$row = "SELECT COUNT(*) FROM {$table_name} WHERE session_id = '{$session_id}'";
-					$check_order = $wpdb->get_var($row);
+					$sql = "SELECT * FROM {$table_name} WHERE session_id = '{$session_id}'";
+					$order_current = $wpdb->get_row($sql);
 
-					if($check_order > 0) {
+					if(isset($order_current) && !is_null($order_current) && !empty($order_current)) {
 
 						$updated_at  = get_date_from_gmt(date('Y-m-d H:i:s', time()));
-					
 						$link        = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
+
 						$data_update = ['email' => $email ,'cart_content' => $cart, 'customer_info' => $customer_info, 'link' => $link, 'line_items' => json_encode($line_items), 'updated_at' => $updated_at];
 						$data_where  = ['id' => $avada_cart_aban_id, 'session_id' => $session_id];
 						
 						$wpdb->update($table_name , $data_update, $data_where);
 						$id          = $avada_cart_aban_id;
+						$created_at  = $order_current->created_at;
 
 					} else {
 
 						$created_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+						$updated_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
 						$session_id   = md5($cart . time());
 						$link         = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
-						
-						$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."')"; 
+
+						$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`, `updated_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."', '".$updated_at."')"; 
 						$insertResult = $wpdb->query($insert_query);
 						$id           = $wpdb->insert_id;
 
@@ -725,10 +729,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				} else {
 
 					$created_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
+					$updated_at   = get_date_from_gmt(date('Y-m-d H:i:s', time()));
 					$session_id   = md5($cart . time());
 					$link         = add_query_arg(['avada_token_cart' => base64_encode($session_id)], $checkout_url);
 					
-					$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."')"; 
+					$insert_query = "INSERT IGNORE INTO ".$table_name."(`email`, `cart_content`, `customer_info`, `session_id`, `link`, `line_items`, `created_at`, `updated_at`) VALUES ('".$email."', '".$cart."', '".$customer_info."', '".$session_id."', '".$link."', '".json_encode($line_items)."', '".$created_at."', '".$updated_at."')"; 
 					$insertResult = $wpdb->query($insert_query);
 					$id           = $wpdb->insert_id;
 					
@@ -737,7 +742,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				WC()->session->set('avada_session_id', $session_id);
 				WC()->session->set('avada_cart_aban_id', $id);
 
-				if($id) return ['link' => $link, 'id' => $id];
+				if($id) return ['link' => $link, 'id' => $id, 'created_at' => $created_at];
 			    
 			}
 
@@ -747,7 +752,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				$sql = "SELECT COUNT(*) FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email'";
 
-				$sum_order = $wpdb->get_var($sql);
+				$sum_order = $wpdb->get_row($sql);
 
 				wp_send_json_success($sum_order);
 			}
