@@ -392,10 +392,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 							$total_spent = 0;
 							if($orders_count > 0) {
 								
-								$sql = "SELECT SUM(meta_value) FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
+								$sql = "SELECT SUM(meta_value) as total_spent FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
 
-								$total_spent = $wpdb->get_row($sql);
+								$result = $wpdb->get_row($sql);
 
+								$total_spent = $result->total_spent;
 							}
 
 							$data_json = 
@@ -750,7 +751,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			{
 				global $wpdb;
 
-				$sql = "SELECT COUNT(*) FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email'";
+				$sql = "SELECT COUNT(*) as count FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email'";
 
 				$sum_order = $wpdb->get_row($sql);
 

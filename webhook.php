@@ -124,9 +124,11 @@ function avada_webhook_sync_customer($order_id){
 		$total_spent = 0;
 		if($orders_count > 0) {
 			
-			$sql = "SELECT SUM(meta_value) FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
+			$sql = "SELECT SUM(meta_value) as total_spent FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
 
-			$total_spent = $wpdb->get_row($sql);
+			$result = $wpdb->get_row($sql);
+
+			$total_spent = $result->total_spent;
 
 		}
 
@@ -305,7 +307,7 @@ function avada_script_thankyou($order_id) {
 
 		if(isset($result) && !is_null($result)) {
 
-			$data_customer = serialize($result->customer_info);
+			$data_customer = unserialize($result->customer_info);
 
 			$order_data = [
 				"id"                     => isset($result->id) ? $result->id : null,

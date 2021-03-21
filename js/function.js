@@ -88,7 +88,9 @@ jQuery(document).ready(function(){
 						action : "count_order"
 					},
 				}).done(function(res) {
-					count_order = res.data
+					console.log(res)
+					count_order = res.data.count
+					console.log(`count_order: ${count_order}`)
 					sessionStorage.setItem('avada_woo_count_order', count_order)
 
 					sync_customer()
@@ -170,7 +172,9 @@ jQuery(document).ready(function(){
 						action : "count_order"
 					},
 				}).done(function(res) {
-					count_order = res.data
+					console.log(res)
+					count_order = res.data.count
+					console.log(`count_order: ${count_order}`)
 					sessionStorage.setItem('avada_woo_count_order', count_order)
 
 					sync_order()
