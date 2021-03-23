@@ -310,7 +310,7 @@ function avada_script_thankyou($order_id) {
 			$data_customer = unserialize($result->customer_info);
 
 			$order_data = [
-				"id"                     => isset($result->id) ? $result->id : null,
+				"id"                     => isset($result->id) ? $result->id : '',
 				"abandoned_checkout_url" => isset($result->link) ? $result->link : null,
 				"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 				"created_at"             => isset($result->created_at) ? $result->created_at : null,
@@ -359,7 +359,7 @@ function avada_script_thankyou($order_id) {
 			$url = "https://app.avada.io/app/api/v1/checkouts";
 			$ch = curl_init($url);
 
-			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -487,7 +487,7 @@ function avada_create_cart_abandonment() {
 	$result = avada_insert_table($line_items);
 
 	$order_data = [
-		"id"                     => isset($result['id']) ? $result['id'] : null,
+		"id"                     => isset($result['id']) ? $result['id'] : '',
 		"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 		"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 		"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
@@ -536,7 +536,7 @@ function avada_create_cart_abandonment() {
 	$url = "https://app.avada.io/app/api/v1/checkouts";
 	$ch = curl_init($url);
 
-	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 	curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_HTTPHEADER, array(

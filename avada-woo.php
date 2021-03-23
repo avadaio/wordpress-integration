@@ -668,7 +668,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					$url = "https://app.avada.io/app/api/v1/checkouts";
 					$ch = curl_init($url);
 
-					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 					curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 					curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 					curl_setopt($ch, CURLOPT_HTTPHEADER, array(
