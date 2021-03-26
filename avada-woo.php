@@ -621,7 +621,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 					$result = $this->avada_insert_table($customer_info, $line_items);
 					$order_data = [
-						"id"                     => isset($result['id']) ? $result['id'] : null,
+						"id"                     => isset($result['id']) ? (int)$result['id'] : '',
 						"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 						"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
@@ -668,7 +668,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					$url = "https://app.avada.io/app/api/v1/checkouts";
 					$ch = curl_init($url);
 
-					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
 					curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 					curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 					curl_setopt($ch, CURLOPT_HTTPHEADER, array(
