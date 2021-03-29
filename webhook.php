@@ -162,7 +162,7 @@ function avada_webhook_sync_customer($order_id){
 		$url = "https://app.avada.io/app/api/v1/customers";
 		$ch = curl_init($url);
 
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
