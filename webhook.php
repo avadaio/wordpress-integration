@@ -89,95 +89,132 @@ function avada_webhook_sync_order($order_id){
 	}
 }
 
-// Webhook Sync Customer
-// add_action('woocommerce_thankyou','avada_webhook_sync_customer');
-// function avada_webhook_sync_customer($order_id){
-// 	if (!$order_id )
-// 		return;
+add_action('user_register', function ($user_id) {
+	$user_data = get_userdata($user_id);
+	$user_email = isset($user_data->user_email) ? $user_data->user_email : '';
+    $data_json = 
+		'
+			{
+				"data": {
+					"description": "",
+					"email": "'.$user_email.'",
+					"firstName": "",
+					"isSubscriber": true,
+					"lastName": "",
+					"phoneNumber": "",
+					"phoneNumberCountry": "",
+					"source": "wordpress",
+					"orders_count": 0,
+					"total_spent": 0,
+					"country": "",
+					"city": "",
+					"address": "",
+					"tags": "WordPress,Woocommerce"
+				}
+			}
+		';
+	
+	$option_connection = get_option('avada_woo_connection');
 
-// 	global $wpdb; 
+	$app_id = $option_connection['avada_woo_app_id'];
+	$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $option_connection['avada_woo_secret_key'], true));
 
-// 	$order_data = wc_get_order($order_id);
-// 	$order_detail = $order_data->get_data();
+	$url = "https://app.avada.io/app/api/v1/customers";
+	$ch = curl_init($url);
 
-// 	if(isset($order_detail['billing']['email']) && strlen($order_detail['billing']['email']) > 0) {
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+		"Content-Type: application/json",
+		"x-emailmarketing-app-id: {$app_id}",
+		"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+		"X-EmailMarketing-Wordpress: true"
+	));
 
-// 		// order count
-// 		$sql = "SELECT * FROM {$wpdb->prefix}posts p
-// 			INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
-// 			WHERE p.post_type = 'shop_order'
-// 			AND pm.meta_key = '_billing_email'
-// 			AND pm.meta_value = '{$order_detail['billing']['email']}'";
+	$response = curl_exec($ch);
+	avada_write_log($user_id .' - '. $response);
+	curl_close($ch);
+});
 
-// 		$list_order = $wpdb->get_results($sql, ARRAY_A);
-		
-// 		$email        = isset($order_detail['billing']['email']) ? $order_detail['billing']['email'] : '';
-// 		$first_name   = isset($order_detail['billing']['first_name']) ? $order_detail['billing']['first_name'] : '';
-// 		$last_name    = isset($order_detail['billing']['last_name']) ? $order_detail['billing']['last_name'] : '';
-// 		$phone        = isset($order_detail['billing']['phone']) ? $order_detail['billing']['phone'] : 0;
-// 		$country      = isset($order_detail['billing']['country']) ? $order_detail['billing']['country'] : '';
-// 		$city         = isset($order_detail['billing']['city']) ? $order_detail['billing']['city'] : '';
-// 		$address      = isset($order_detail['billing']['address_1']) ? $order_detail['billing']['address_1'] : '';
-// 		$orders_count = isset($list_order) ? count($list_order) : 0;
+add_action('profile_update', 'my_profile_update');
+add_action('edit_user_profile_update', 'my_profile_update');
+function my_profile_update($user_id) {
 
-// 		// total spent
-// 		$total_spent = 0;
-// 		if($orders_count > 0) {
+	global $wpdb; 
+	
+	$user_data = get_userdata($user_id);
+	$user_email = isset($user_data->user_email) ? $user_data->user_email : '';
+
+	if(!empty($user_email) && !is_null($user_email)) {
+		// order count
+		$sql = "SELECT * FROM {$wpdb->prefix}posts p
+			INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
+			WHERE p.post_type = 'shop_order'
+			AND pm.meta_key = '_billing_email'
+			AND pm.meta_value = '$user_email'";
+
+		$list_order = $wpdb->get_results($sql, ARRAY_A);
+
+		$orders_count = isset($list_order) ? count($list_order) : 0;
+
+		// total spent
+		$total_spent = 0;
+		if($orders_count > 0) {
 			
-// 			$sql = "SELECT SUM(meta_value) as total_spent FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
+			$sql = "SELECT SUM(meta_value) as total_spent FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
 
-// 			$result = $wpdb->get_row($sql);
+			$result = $wpdb->get_row($sql);
 
-// 			$total_spent = $result->total_spent;
+			$total_spent = $result->total_spent;
 
-// 		}
+		}
 
-// 		$data_json = 
-// 			'
-// 				{
-// 					"data": {
-// 						"description": "",
-// 						"email": "'.$email.'",
-// 						"firstName": "'.$first_name.'",
-// 						"isSubscriber": true,
-// 						"lastName": "'.$last_name.'",
-// 						"phoneNumber": "'.$phone.'",
-// 						"phoneNumberCountry": "'.$country.'",
-// 						"source": "wordpress",
-// 						"orders_count": '.$orders_count.',
-// 						"total_spent": '.$total_spent.',
-// 						"country": "'.$country.'",
-// 						"city": "'.$city.'",
-// 						"address": "'.$address.'",
-// 						"tags": "WordPress,Woocommerce"
-// 					}
-// 				}
-// 			';
+		$data_json = 
+			'
+				{
+					"data": {
+						"description": "",
+						"email": "'.$user_email.'",
+						"firstName": "",
+						"isSubscriber": true,
+						"lastName": "",
+						"phoneNumber": "",
+						"phoneNumberCountry": "",
+						"source": "wordpress",
+						"orders_count": '.$orders_count.',
+						"total_spent": '.$total_spent.',
+						"country": "",
+						"city": "",
+						"address": "",
+						"tags": "WordPress,Woocommerce"
+					}
+				}
+			';
 		
-// 		$option_connection = get_option('avada_woo_connection');
+		$option_connection = get_option('avada_woo_connection');
 
-// 		$app_id = $option_connection['avada_woo_app_id'];
-// 		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $option_connection['avada_woo_secret_key'], true));
+		$app_id = $option_connection['avada_woo_app_id'];
+		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $option_connection['avada_woo_secret_key'], true));
 
-// 		$url = "https://app.avada.io/app/api/v1/customers";
-// 		$ch = curl_init($url);
+		$url = "https://app.avada.io/app/api/v1/customers";
+		$ch = curl_init($url);
 
-// 		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-// 		curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-// 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-// 		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-// 			"Content-Type: application/json",
-// 			"x-emailmarketing-app-id: {$app_id}",
-// 			"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
-// 			"X-EmailMarketing-Wordpress: true"
-// 		));
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+			"Content-Type: application/json",
+			"x-emailmarketing-app-id: {$app_id}",
+			"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+			"X-EmailMarketing-Wordpress: true"
+		));
 
-// 		$response = curl_exec($ch);
-// 		avada_write_log($order_id .' - '. $response);
-// 		curl_close($ch);
-
-// 	}
-// }
+		$response = curl_exec($ch);
+		avada_write_log($order_id .' - '. $response);
+		curl_close($ch);
+	}
+}
 
 // Webhook Update Order Completed / Refund
 add_action('woocommerce_order_status_changed', 'avada_webhook_update_status_order');
