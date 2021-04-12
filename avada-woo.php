@@ -66,6 +66,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				add_action('wp_ajax_sync_customer', [$this, 'sync_customer']);
 				add_action('wp_ajax_sync_order', [$this, 'sync_order']);
 				add_action('wp_ajax_count_order', [$this, 'count_order']);
+				add_action('wp_ajax_avada_checkout', [$this, 'avada_checkout']);
 				add_action('wp_ajax_nopriv_avada_checkout', [$this, 'avada_checkout']);
 			}
 
