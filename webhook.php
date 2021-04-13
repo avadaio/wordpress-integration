@@ -101,6 +101,7 @@ add_action('user_register', function ($user_id) {
 		'
 			{
 				"data": {
+					"id": '.$user_id.',
 					"description": "",
 					"email": "'.$user_email.'",
 					"firstName": "'.$first_name.'",
@@ -196,6 +197,7 @@ function my_profile_update($user_id) {
 				'
 					{
 						"data": {
+							"id": '.$user_id.',
 							"description": "",
 							"email": "'.$user_email.'",
 							"firstName": "'.$first_name.'",

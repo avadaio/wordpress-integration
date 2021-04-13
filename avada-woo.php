@@ -367,6 +367,10 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					
 					foreach($emails as $email) {
 						
+						$sql = "SELECT id FROM {$wpdb->prefix}users WHERE user_email = '{$email['meta_value']}'";
+						$result = $wpdb->get_row($sql);
+						$id = $result->id;
+
 						// order count
 						$sql = "SELECT COUNT(*) as orders_count FROM {$wpdb->prefix}posts p
 							INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
@@ -424,6 +428,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 							'
 								{
 									"data": {
+										"id": '.$id.',
 										"description": "",
 										"email": "'.$email['meta_value'].'",
 										"firstName": "'.$first_name.'",
