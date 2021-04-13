@@ -91,16 +91,21 @@ function avada_webhook_sync_order($order_id){
 
 add_action('user_register', function ($user_id) {
 	$user_data = get_userdata($user_id);
+
 	$user_email = isset($user_data->user_email) ? $user_data->user_email : '';
+	$first_name = isset($_POST['first_name']) ? $_POST['first_name'] : '';
+	$last_name = isset($_POST['last_name']) ? $_POST['last_name'] : '';
+	$role = isset($user_data->roles[0]) ? $user_data->roles[0] : '';
+
     $data_json = 
 		'
 			{
 				"data": {
 					"description": "",
 					"email": "'.$user_email.'",
-					"firstName": "",
+					"firstName": "'.$first_name.'",
 					"isSubscriber": true,
-					"lastName": "",
+					"lastName": "'.$last_name.'",
 					"phoneNumber": "",
 					"phoneNumberCountry": "",
 					"source": "wordpress",
@@ -109,11 +114,11 @@ add_action('user_register', function ($user_id) {
 					"country": "",
 					"city": "",
 					"address": "",
-					"tags": "WordPress,Woocommerce"
+					"tags": "WordPress,Woocommerce,'.$role.'"
 				}
 			}
 		';
-	
+
 	$option_connection = get_option('avada_woo_connection');
 
 	$app_id = $option_connection['avada_woo_app_id'];
@@ -149,15 +154,14 @@ function my_profile_update($user_id) {
 
 		if(!empty($user_email) && !is_null($user_email)) {
 			// order count
-			$sql = "SELECT * FROM {$wpdb->prefix}posts p
+			$sql = "SELECT COUNT(*) as orders_count FROM {$wpdb->prefix}posts p
 				INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
 				WHERE p.post_type = 'shop_order'
 				AND pm.meta_key = '_billing_email'
-				AND pm.meta_value = '$user_email'";
+				AND pm.meta_value = '{$user_email}'";
 
-			$list_order = $wpdb->get_results($sql, ARRAY_A);
-
-			$orders_count = isset($list_order) ? count($list_order) : 0;
+			$orders_count = $wpdb->get_row($sql);
+			$orders_count = $orders_count->orders_count;
 
 			// total spent
 			$total_spent = 0;
@@ -171,15 +175,32 @@ function my_profile_update($user_id) {
 
 			}
 
+			$first_name = '';
+			$last_name = '';
+
+			if(isset($_POST['account_first_name'])) {
+				$first_name = $_POST['account_first_name'];
+			} else if(isset($_POST['first_name'])) {
+				$first_name = $_POST['first_name'];
+			}
+			
+			if(isset($_POST['account_last_name'])) {
+				$last_name = $_POST['account_last_name'];
+			} else if(isset($_POST['last_name'])) {
+				$last_name = $_POST['last_name'];
+			}
+
+			$role = isset($user_data->roles[0]) ? $user_data->roles[0] : '';
+
 			$data_json = 
 				'
 					{
 						"data": {
 							"description": "",
 							"email": "'.$user_email.'",
-							"firstName": "",
+							"firstName": "'.$first_name.'",
 							"isSubscriber": true,
-							"lastName": "",
+							"lastName": "'.$last_name.'",
 							"phoneNumber": "",
 							"phoneNumberCountry": "",
 							"source": "wordpress",
@@ -188,11 +209,11 @@ function my_profile_update($user_id) {
 							"country": "",
 							"city": "",
 							"address": "",
-							"tags": "WordPress,Woocommerce"
+							"tags": "WordPress,Woocommerce,'.$role.'"
 						}
 					}
 				';
-			
+
 			$option_connection = get_option('avada_woo_connection');
 
 			$app_id = $option_connection['avada_woo_app_id'];
@@ -212,7 +233,6 @@ function my_profile_update($user_id) {
 			));
 
 			$response = curl_exec($ch);
-			avada_write_log($order_id .' - '. $response);
 			curl_close($ch);
 		}
 	}
@@ -345,72 +365,70 @@ function avada_script_thankyou($order_id) {
 
 		$result = $wpdb->get_row($sql);
 
-		if(isset($result) && !is_null($result)) {
+		$data_order = $order->get_data();
 
-			$data_customer = unserialize($result->customer_info);
+		$order_data = [
+			"id"                     => isset($result->id) ? (int)$result->id : '',
+			"abandoned_checkout_url" => isset($result->link) ? $result->link : null,
+			"email"                  => isset($data_order['billing']['email']) ? $data_order['billing']['email'] : null,
+			"created_at"             => isset($result->created_at) ? $result->created_at : null,
+			"updated_at"             => isset($result->updated_at) ? $result->updated_at : null,
+			"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+			"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
+			"phone"                  => isset($data_order['billing']['phone']) ? $data_order['billing']['phone'] : null,
+			"customer_locale"        => "",
+			"subtotal_price"         => WC()->cart->subtotal,
+			"total_tax"              => WC()->cart->get_total_tax(),
+			"total_price"            => WC()->cart->total,
+			"currency"               => get_woocommerce_currency(),
+			"presentment_currency"	 => get_woocommerce_currency(),
+			"customer" => [
+				"id"         => get_current_user_id(),
+				"email"      => isset($data_order['billing']['email']) ? $data_order['billing']['email'] : null,
+				"name"       => isset($data_order['billing']['first_name']) ? $data_order['billing']['first_name'] : null,
+				"first_name" => isset($data_order['billing']['first_name']) ? $data_order['billing']['first_name'] : null,
+				"last_name"  => isset($data_order['billing']['last_name']) ? $data_order['billing']['last_name'] : null
+			],
+			"shipping_address" => [
+				"name"          => isset($data_order['billing']['first_name']) ? $data_order['billing']['first_name'] : null,
+				"last_name"     => isset($data_order['billing']['last_name']) ? $data_order['billing']['last_name'] : null,
+				"phone"         => isset($data_order['billing']['phone']) ? $data_order['billing']['phone'] : null,
+				"company"       => isset($data_order['billing']['company']) ? $data_order['billing']['company'] : null,
+				"country_code"  => isset($data_order['billing']['country']) ? $data_order['billing']['country'] : null,
+				"zip"           => "",
+				"address1"      => isset($data_order['billing']['address_1']) ? $data_order['billing']['address_1'] : null,
+				"address2"      => isset($data_order['billing']['address_2']) ? $data_order['billing']['address_2'] : null,
+				"city"          => isset($data_order['billing']['city']) ? $data_order['billing']['city'] : null,
+				"province_code" => "",
+				"province"      => ""
+			]
+		];
 
-			$order_data = [
-				"id"                     => isset($result->id) ? (int)$result->id : '',
-				"abandoned_checkout_url" => isset($result->link) ? $result->link : null,
-				"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
-				"created_at"             => isset($result->created_at) ? $result->created_at : null,
-				"updated_at"             => isset($result->updated_at) ? $result->updated_at : null,
-				"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
-				"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
-				"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
-				"customer_locale"        => "",
-				"subtotal_price"         => WC()->cart->subtotal,
-				"total_tax"              => WC()->cart->get_total_tax(),
-				"total_price"            => WC()->cart->total,
-				"currency"               => get_woocommerce_currency(),
-				"presentment_currency"	 => get_woocommerce_currency(),
-				"customer" => [
-					"id"         => 0,
-					"email"      => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
-					"name"       => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
-					"first_name" => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
-					"last_name"  => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null
-				],
-				"shipping_address" => [
-					"name"          => isset($data_customer['avada_billing_first_name']) ? $data_customer['avada_billing_first_name'] : null,
-					"last_name"     => isset($data_customer['avada_billing_last_name']) ? $data_customer['avada_billing_last_name'] : null,
-					"phone"         => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
-					"company"       => "",
-					"country_code"  => isset($data_customer['avada_billing_country']) ? $data_customer['avada_billing_country'] : null,
-					"zip"           => "",
-					"address1"      => isset($data_customer['avada_billing_address_1']) ? $data_customer['avada_billing_address_1'] : null,
-					"address2"      => "",
-					"city"          => isset($data_customer['avada_billing_city']) ? $data_customer['avada_billing_city'] : null,
-					"province_code" => "",
-					"province"      => ""
-				]
-			];
+		$order_data['line_items'] = isset($result->line_items) ? json_decode($result->line_items) : '';
+		$order_data = json_encode($order_data);
 
-			$order_data['line_items'] = json_decode($result->line_items);
-			$order_data = json_encode($order_data);
+		$data = '{"data": '.$order_data.'}';
 
-			$data = '{"data": '.$order_data.'}';
+		$option_connection = get_option('avada_woo_connection');
 
-			$option_connection = get_option('avada_woo_connection');
+		$app_id = $option_connection['avada_woo_app_id'];
+		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 
-			$app_id = $option_connection['avada_woo_app_id'];
-			$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
+		$url = "https://app.avada.io/app/api/v1/checkouts";
+		$ch = curl_init($url);
 
-			$url = "https://app.avada.io/app/api/v1/checkouts";
-			$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+			"Content-Type: application/json",
+			"x-emailmarketing-app-id: {$app_id}",
+			"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+			"X-EmailMarketing-Wordpress: true"
+		));
 
-			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-				"Content-Type: application/json",
-				"x-emailmarketing-app-id: {$app_id}",
-				"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
-				"X-EmailMarketing-Wordpress: true"
-			));
-
-			$response = curl_exec($ch);
-		}
+		$response = curl_exec($ch);
+		
 		
 		?>
 			<script data-cfasync="false" type="text/javascript">

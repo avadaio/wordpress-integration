@@ -66,6 +66,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				add_action('wp_ajax_sync_customer', [$this, 'sync_customer']);
 				add_action('wp_ajax_sync_order', [$this, 'sync_order']);
 				add_action('wp_ajax_count_order', [$this, 'count_order']);
+				add_action('wp_ajax_count_email', [$this, 'count_email']);
 				add_action('wp_ajax_avada_checkout', [$this, 'avada_checkout']);
 				add_action('wp_ajax_nopriv_avada_checkout', [$this, 'avada_checkout']);
 			}
@@ -353,93 +354,110 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 				$limit = isset($_POST['limit']) ? esc_attr($_POST['limit']) : 10;
 				$offset = isset($_POST['offset']) ? esc_attr($_POST['offset']) : 0;
-				$count_order = isset($_POST['count_order']) ? esc_attr($_POST['count_order']) : 0;
+				$count_email = isset($_POST['count_email']) ? esc_attr($_POST['count_email']) : 0;
 				
-				if($offset <= $count_order) {
+				if($offset <= $count_email) {
 
 					$url = "https://app.avada.io/app/api/v1/customers";
 					$ch = curl_init($url);
 
 					$response = '';
 					
-					$orders = self::get_all_orders($limit, $offset);
+					$emails = self::get_all_email($limit, $offset);
+					
+					foreach($emails as $email) {
+						
+						// order count
+						$sql = "SELECT COUNT(*) as orders_count FROM {$wpdb->prefix}posts p
+							INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
+							WHERE p.post_type = 'shop_order'
+							AND pm.meta_key = '_billing_email'
+							AND pm.meta_value = '{$email['meta_value']}'";
 
-					foreach($orders as $order_id) {
+						$orders_count = $wpdb->get_row($sql);
+						$orders_count = $orders_count->orders_count;
 
-						$order_data = wc_get_order($order_id['ID']);
-						$order_detail = $order_data->get_data();
+						$sql = "SELECT * FROM {$wpdb->prefix}postmeta WHERE post_id = (SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_value = '{$email['meta_value']}' ORDER BY post_id DESC LIMIT 1)";
 
-						if(isset($order_detail['billing']['email']) && strlen($order_detail['billing']['email']) > 0) {
+						$result = $wpdb->get_results($sql);
 
-							// order count
-							$sql = "SELECT * FROM {$wpdb->prefix}posts p
-								INNER JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
-								WHERE p.post_type = 'shop_order'
-								AND pm.meta_key = '_billing_email'
-								AND pm.meta_value = '{$order_detail['billing']['email']}'";
+						foreach($result as $item) {
 
-							$list_order = $wpdb->get_results($sql, ARRAY_A);
+							if($item->meta_key == '_billing_first_name') {
+								$first_name = $item->meta_value;
+							}
 							
-							$email = isset($order_detail['billing']['email']) ? $order_detail['billing']['email'] : '';
-							$first_name = isset($order_detail['billing']['first_name']) ? $order_detail['billing']['first_name'] : '';
-							$last_name = isset($order_detail['billing']['last_name']) ? $order_detail['billing']['last_name'] : '';
-							$phone = isset($order_detail['billing']['phone']) ? $order_detail['billing']['phone'] : 0;
-							$country = isset($order_detail['billing']['country']) ? $order_detail['billing']['country'] : '';
-							$city = isset($order_detail['billing']['city']) ? $order_detail['billing']['city'] : '';
-							$address = isset($order_detail['billing']['address_1']) ? $order_detail['billing']['address_1'] : '';
-							$orders_count = isset($list_order) ? count($list_order) : 0;
-
-							// total spent
-							$total_spent = 0;
-							if($orders_count > 0) {
-								
-								$sql = "SELECT SUM(meta_value) as total_spent FROM wp_postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM wp_postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$order_detail['billing']['email']}' GROUP BY meta_value)";
-
-								$result = $wpdb->get_row($sql);
-
-								$total_spent = $result->total_spent;
+							if($item->meta_key == '_billing_last_name') {
+								$last_name = $item->meta_value;
 							}
 
-							$data_json = 
-								'
-									{
-										"data": {
-											"description": "",
-											"email": "'.$email.'",
-											"firstName": "'.$first_name.'",
-											"isSubscriber": true,
-											"lastName": "'.$last_name.'",
-											"phoneNumber": "'.$phone.'",
-											"phoneNumberCountry": "'.$country.'",
-											"source": "wordpress",
-											"orders_count": '.$orders_count.',
-											"total_spent": '.$total_spent.',
-											"country": "'.$country.'",
-											"city": "'.$city.'",
-											"address": "'.$address.'",
-											"tags": "WordPress,Woocommerce"
-										}
-									}
-								';
+							if($item->meta_key == '_billing_phone') {
+								$phone = $item->meta_value;
+							}
 
-							$app_id = $this->option_connection['avada_woo_app_id'];
-							$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $this->option_connection['avada_woo_secret_key'], true));
+							if($item->meta_key == '_billing_country') {
+								$country = $item->meta_value;
+							}
+							
+							if($item->meta_key == '_billing_city') {
+								$city = $item->meta_value;
+							}
 
-							curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-							curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-							curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-							curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-								"Content-Type: application/json",
-								"x-emailmarketing-app-id: {$app_id}",
-								"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
-								"X-EmailMarketing-Wordpress: true"
-							));
-
-							$response = curl_exec($ch);
-							$response = json_decode($response);
+							if($item->meta_key == '_billing_address_1') {
+								$address = $item->meta_value;
+							}
 
 						}
-						
+
+						// total spent
+						$total_spent = 0;
+						if($orders_count > 0) {
+							
+							$sql = "SELECT SUM(meta_value) as total_spent FROM {$wpdb->prefix}postmeta WHERE meta_key = '_order_total' AND post_id IN (SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = '_billing_email' AND meta_value = '{$email['meta_value']}' GROUP BY meta_value)";
+
+							$result = $wpdb->get_row($sql);
+
+							$total_spent = $result->total_spent;
+						}
+
+						$data_json = 
+							'
+								{
+									"data": {
+										"description": "",
+										"email": "'.$email['meta_value'].'",
+										"firstName": "'.$first_name.'",
+										"isSubscriber": true,
+										"lastName": "'.$last_name.'",
+										"phoneNumber": "'.$phone.'",
+										"phoneNumberCountry": "'.$country.'",
+										"source": "wordpress",
+										"orders_count": '.$orders_count.',
+										"total_spent": '.$total_spent.',
+										"country": "'.$country.'",
+										"city": "'.$city.'",
+										"address": "'.$address.'",
+										"tags": "WordPress,Woocommerce"
+									}
+								}
+							';
+
+						$app_id = $this->option_connection['avada_woo_app_id'];
+						$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $this->option_connection['avada_woo_secret_key'], true));
+
+						curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+						curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+						curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+						curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+							"Content-Type: application/json",
+							"x-emailmarketing-app-id: {$app_id}",
+							"x-emailmarketing-hmac-sha256: {$hmac_sha256}",
+							"X-EmailMarketing-Wordpress: true"
+						));
+
+						$response = curl_exec($ch);
+						$response = json_decode($response);
+
 					}
 
 					wp_send_json_success([
@@ -759,16 +777,38 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				wp_send_json_success($sum_order);
 			}
 
+			public function count_email()
+			{
+				global $wpdb;
+
+				$sql = "SELECT COUNT(*) as count FROM (SELECT * FROM {$wpdb->prefix}postmeta WHERE meta_key = '_billing_email' GROUP BY meta_value) t";
+
+				$sum_email = $wpdb->get_row($sql);
+
+				wp_send_json_success($sum_email);
+			}
+
 			private static function get_all_orders($limit = 10, $offset = 0)
 			{
 				global $wpdb;
 
 				$sql = "SELECT p.ID FROM {$wpdb->prefix}posts p JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id WHERE p.post_type = 'shop_order' AND pm.meta_key = '_billing_email' LIMIT $offset, $limit";
 
-				$orders = $wpdb->get_results($sql, ARRAY_A);
+				$result = $wpdb->get_results($sql, ARRAY_A);
 
-				return $orders;
+				return $result;
 			}
+
+			private static function get_all_email($limit = 10, $offset = 0)
+			{
+				global $wpdb;
+
+				$sql = "SELECT * FROM {$wpdb->prefix}postmeta WHERE meta_key = '_billing_email' GROUP BY meta_value LIMIT $offset, $limit";
+
+				$result = $wpdb->get_results($sql, ARRAY_A);
+
+				return $result;
+			} 
 
 		}
 

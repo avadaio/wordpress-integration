@@ -85,13 +85,13 @@ jQuery(document).ready(function(){
 					type : 'post',
 					dataType : 'json',
 					data : {
-						action : "count_order"
+						action : "count_email"
 					},
 				}).done(function(res) {
 					console.log(res)
-					count_order = res.data.count
-					console.log(`count_order: ${count_order}`)
-					sessionStorage.setItem('avada_woo_count_order', count_order)
+					count_email = res.data.count
+					console.log(`count_email: ${count_email}`)
+					sessionStorage.setItem('avada_woo_count_email', count_email)
 
 					sync_customer()
 
@@ -114,15 +114,13 @@ jQuery(document).ready(function(){
 				action : "sync_customer",
 				offset : offset,
 				limit : LIMIT,
-				count_order : sessionStorage.getItem('avada_woo_count_order')
+				count_email : sessionStorage.getItem('avada_woo_count_email')
 			},
 		}).done(function(res){
 
-			console.log(res)
-
 			if(!res.data.end){
 				sync_customer(parseInt(res.data.offset) + LIMIT)
-				process_bar(parseInt(res.data.offset))
+				process_bar(parseInt(res.data.offset), sessionStorage.getItem('avada_woo_count_email'))
 			} else {
 				Swal.fire(
 					'Success !',
@@ -131,7 +129,7 @@ jQuery(document).ready(function(){
 				)
 
 				loading_snipper(false)
-				process_bar(parseInt(res.data.offset))
+				process_bar(parseInt(res.data.offset), sessionStorage.getItem('avada_woo_count_email'))
 				
 			}
 			
@@ -205,11 +203,10 @@ jQuery(document).ready(function(){
 				count_order : sessionStorage.getItem('avada_woo_count_order')
 			}
 		}).done(function(res){
-			console.log(res)
 
 			if(!res.data.end){
 				sync_order(parseInt(res.data.offset) + LIMIT)
-				process_bar(parseInt(res.data.offset))
+				process_bar(parseInt(res.data.offset), sessionStorage.getItem('avada_woo_count_order'))
 			} else {
 				Swal.fire(
 					'Success !',
@@ -218,7 +215,7 @@ jQuery(document).ready(function(){
 				)
 
 				loading_snipper(false)
-				process_bar(parseInt(res.data.offset))
+				process_bar(parseInt(res.data.offset), sessionStorage.getItem('avada_woo_count_order'))
 				
 			}
 		}).fail(function(jqXHR, textStatus, errorThrown){
@@ -232,15 +229,13 @@ jQuery(document).ready(function(){
 
 	}
 
-	function process_bar(offset = 0) {
+	function process_bar(offset = 0, count = 1) {
 
-		var count_order = sessionStorage.getItem('avada_woo_count_order')
-
-		if(offset > count_order) {
-			offset = count_order
+		if(offset > count) {
+			offset = count
 		}
 
-		var width = Math.round((offset / count_order) * 100)
+		var width = Math.round((offset / count) * 100)
 
 		if(offset == 0) {
 			width = 1
