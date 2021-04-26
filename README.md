@@ -1,4 +1,4 @@
-# AVADA Marketing Automation for Wordpress / Woocommerce Integration
+# AVADA Marketing Automation for Woocommerce
 
 AVADA Marketing Automation for Wordpress / Woocommerce
 
@@ -27,3 +27,8 @@ If you don't have API Key, go to [this page](https://app.avada.io/manage/keys) t
 
 ![image](https://user-images.githubusercontent.com/2810172/116044804-8cf5e900-a69b-11eb-919a-fb518383efd0.png)
 
+
+## Useful links
+- Help center: https://help.avada.io/
+- Contact us: https://avada.io/contact.html
+- Homepage https://avada.io/
