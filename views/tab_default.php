@@ -1,4 +1,4 @@
-<h3>Avada API Setting Connection</h3>
+<h3>AVADA API Settings</h3>
 <form method="post" action="options.php">
 <?php
 	settings_fields('avada_woo_connection');   
