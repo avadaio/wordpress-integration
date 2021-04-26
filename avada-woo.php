@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: AVADA Woocommerce Connector
+Plugin Name: AVADA WooCommerce Connector
 Plugin URI: https://avada.io
 Description: AVADA Connector
 Version: 1.0
