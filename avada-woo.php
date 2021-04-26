@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: Avada Woo
+Plugin Name: AVADA Woocommerce Connector
 Plugin URI: https://avada.io
-Description: Kết nối Avada vs Woocommerce
+Description: AVADA Connector
 Version: 1.0
 Author: avada.io
 Author URI: https://avada.io
@@ -77,8 +77,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			 */
 			public function add_settings_page() {
 				add_options_page(
-					'Avada Woo', // Page title
-					'Avada Woo', // Title
+					'AVADA Woocommerce Connector', // Page title
+					'AVADA Marketing Automation', // Title
 					'manage_options', // Capability
 					'avada-woo', // Url slug
 					array( $this, 'create_admin_page' ) // Callback
@@ -105,7 +105,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						</div>
 					</div>	
 
-					<h2>AVADA WOOCOMMERCE</h2>
+					<h2>AVADA Woocommerce</h2>
 
 					<nav class="nav-tab-wrapper">
 						<a href="?page=avada-woo" class="nav-tab <?php if($tab === null): ?> nav-tab-active <?php endif; ?>">Connect</a>
@@ -310,12 +310,12 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 						wp_send_json_success([
 							'status' => true,
-							'message' => 'Kết nối với Avada thành công'
+							'message' => 'Connected successfully'
 						]);
 					} else {
 						wp_send_json_success([
 							'status' => false,
-							'message' => 'Kết nối với Avada không thành công ! Vui lòng kiểm tra lại APP ID & SECRECT KEY !'
+							'message' => 'FAILED to connect with AVADA! Please double check your APP ID & Secret key !'
 						]);
 					}
 				}
@@ -480,7 +480,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					wp_send_json_success([
 						'data'    => $data_json,
 						'hmac'    => $hmac_sha256,
-						'message' => 'Avada Sync Customer Woocommerce Success !',
+						'message' => 'Congratulation! AVADA has synced all customers successfully!',
 						'offset'  => $offset,
 						'end'     => true
 					]);
@@ -601,7 +601,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					wp_send_json_success([
 						'data'    => $data,
 						'hmac'    => $hmac_sha256,
-						'message' => 'Avada Sync Order Woocommerce Success !',
+						'message' => 'Congratulation! AVADA has synced all orders successfully !',
 						'offset'  => $offset,
 						'end'     => true
 					]);
