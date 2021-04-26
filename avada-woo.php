@@ -105,12 +105,12 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						</div>
 					</div>	
 
-					<h2>AVADA Woocommerce</h2>
+					<h2>AVADA for WooCommerce</h2>
 
 					<nav class="nav-tab-wrapper">
-						<a href="?page=avada-woo" class="nav-tab <?php if($tab === null): ?> nav-tab-active <?php endif; ?>">Connect</a>
+						<a href="?page=avada-woo" class="nav-tab <?php if($tab === null): ?> nav-tab-active <?php endif; ?>">Connection</a>
 						<?php if(isset($this->option_connection['avada_woo_enable'])): ?>
-						<a href="?page=avada-woo&tab=woocommerce" class="nav-tab <?php if($tab === 'woocommerce'): ?> nav-tab-active <?php endif; ?>">Woocommerce</a>
+						<a href="?page=avada-woo&tab=woocommerce" class="nav-tab <?php if($tab === 'woocommerce'): ?> nav-tab-active <?php endif; ?>">Sync</a>
 						<?php endif; ?>
 					</nav>
 
