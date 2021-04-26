@@ -51,7 +51,7 @@ jQuery(document).ready(function(){
 			Swal.fire({
 				icon: 'error',
 				title: 'Oops...',
-				text: 'App ID & Secret Key Require !',
+				text: 'App ID & Secret Key is required !',
 			})
 		}
 		
@@ -138,7 +138,7 @@ jQuery(document).ready(function(){
 			Swal.fire({
 				icon: 'error',
 				title: 'Oops...',
-				text: 'Đã có lỗi xảy ra ! Vui lòng thử lại !',
+				text: 'Error! please check again or contact us.',
 			})
 		})
 	}
@@ -182,7 +182,7 @@ jQuery(document).ready(function(){
 					Swal.fire({
 						icon: 'error',
 						title: 'Oops...',
-						text: 'Đã có lỗi xảy ra ! Vui lòng thử lại !',
+						text: 'Error! please check again or contact us.',
 					})
 				})
 
@@ -223,7 +223,7 @@ jQuery(document).ready(function(){
 			Swal.fire({
 				icon: 'error',
 				title: 'Oops...',
-				text: 'Đã có lỗi xảy ra ! Vui lòng thử lại !',
+				text: 'Error! please check again or contact us.',
 			})
 		})
 
