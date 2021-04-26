@@ -1,7 +1,7 @@
-<h3>Woocommerce Sync Avada API</h3>
-<input type="button" id="sync_customer" class="button button-primary" value="Đồng bộ khách hàng">
+<h3>Sync to AVADA</h3>
+<input type="button" id="sync_customer" class="button button-primary" value="Sync Customers">
 &nbsp;&nbsp;
-<input type="button" id="sync_order" class="button button-success" value="Đồng bộ đơn hàng">
+<input type="button" id="sync_order" class="button button-success" value="Sync Orders">
 
 <br>
 
