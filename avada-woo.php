@@ -613,7 +613,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			public function avada_checkout()
 			{
 				$data_customer = isset($_POST['data_customer']) ? $_POST['data_customer'] : null;
-				
+
 				if(!is_null($data_customer)) {
 					
 					$customer_info = [
@@ -649,7 +649,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 						"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 						"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
-						"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+						"updated_at"             => date('Y-m-d H:i:s', time()),
 						"completed_at"           => null,
 						"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
 						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
@@ -688,7 +688,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 					$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $this->option_connection['avada_woo_secret_key'], true));
 					$app_id = $this->option_connection['avada_woo_app_id'];
-
+					var_dump($data, '$data');
+					die('12312');
 					$url = "https://app.avada.io/app/api/v1/checkouts";
 					$ch = curl_init($url);
 
