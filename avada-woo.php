@@ -30,6 +30,11 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 			**/
 			public $option_connection;
 			public $option_woo_auth;
+			// Live URL
+			public $avada_api_url = 'https://app.avada.io';
+
+			// Test URL
+			// public $avada_api_url = 'https://5204-118-70-54-131.ngrok.io';
 			/**
 			 * Constructor
 			 */
@@ -304,7 +309,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						"X-EmailMarketing-Wordpress: true"
 					];
 
-					$result = self::curl('https://app.avada.io/app/api/v1/connects', 'POST', $header, $data_store);
+					$result = self::curl($this->avada_api_url . '/app/api/v1/connects', 'POST', $header, $data_store);
 
 					if(isset($result['success']) && $result['success'] == 1) {
 
@@ -358,7 +363,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 				
 				if($offset <= $count_email) {
 
-					$url = "https://app.avada.io/app/api/v1/customers";
+					$url = $this->avada_api_url . "/app/api/v1/customers";
 					$ch = curl_init($url);
 
 					$response = '';
@@ -570,7 +575,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 					$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $this->option_connection['avada_woo_secret_key'], true));
 					$app_id = $this->option_connection['avada_woo_app_id'];
 					
-					$url = "https://app.avada.io/app/api/v1/orders/bulk";
+					$url = $this->avada_api_url . "/app/api/v1/orders/bulk";
 					$ch = curl_init($url);
 
 					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
@@ -651,6 +656,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 						"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
 						"updated_at"             => date('Y-m-d H:i:s', time()),
 						"completed_at"           => null,
+						"is_utc"				 => true,
 						"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
 						"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 						"customer_locale"        => "",
@@ -688,9 +694,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 					$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $this->option_connection['avada_woo_secret_key'], true));
 					$app_id = $this->option_connection['avada_woo_app_id'];
-					var_dump($data, '$data');
-					die('12312');
-					$url = "https://app.avada.io/app/api/v1/checkouts";
+
+					$url = $this->avada_api_url . "/app/api/v1/checkouts";
 					$ch = curl_init($url);
 
 					curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");

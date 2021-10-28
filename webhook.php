@@ -5,7 +5,7 @@ add_action('woocommerce_thankyou','avada_webhook_sync_order');
 function avada_webhook_sync_order($order_id){
 	if (!$order_id )
 		return;
-
+	$avada = new Avada_Woo;
 	$order = wc_get_order($order_id);
 
 	if(isset($order) && !is_null($order) && !empty($order) && $order->get_billing_email() && !empty($order->get_billing_email()) && !is_null($order->get_billing_email()) && strlen($order->get_billing_email()) > 0) {
@@ -68,7 +68,7 @@ function avada_webhook_sync_order($order_id){
 		$app_id = $option_connection['avada_woo_app_id'];
 		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 		
-		$url = "https://app.avada.io/app/api/v1/orders";
+		$url = $avada->avada_api_url . "/app/api/v1/orders";
 		$ch = curl_init($url);
 
 		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
@@ -91,7 +91,7 @@ function avada_webhook_sync_order($order_id){
 
 add_action('user_register', function ($user_id) {
 	$user_data = get_userdata($user_id);
-
+	$avada = new Avada_Woo;
 	$user_email = isset($user_data->user_email) ? $user_data->user_email : '';
 	$first_name = isset($_POST['first_name']) ? $_POST['first_name'] : '';
 	$last_name = isset($_POST['last_name']) ? $_POST['last_name'] : '';
@@ -125,7 +125,7 @@ add_action('user_register', function ($user_id) {
 	$app_id = $option_connection['avada_woo_app_id'];
 	$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $option_connection['avada_woo_secret_key'], true));
 
-	$url = "https://app.avada.io/app/api/v1/customers";
+	$url = $avada->avada_api_url . "/app/api/v1/customers";
 	$ch = curl_init($url);
 
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
@@ -149,7 +149,7 @@ function my_profile_update($user_id) {
 
 	if(!is_checkout()) {
 		global $wpdb; 
-	
+		$avada = new Avada_Woo;
 		$user_data = get_userdata($user_id);
 		$user_email = isset($user_data->user_email) ? $user_data->user_email : '';
 
@@ -221,7 +221,7 @@ function my_profile_update($user_id) {
 			$app_id = $option_connection['avada_woo_app_id'];
 			$hmac_sha256 = base64_encode(hash_hmac('sha256', $data_json, $option_connection['avada_woo_secret_key'], true));
 
-			$url = "https://app.avada.io/app/api/v1/customers";
+			$url = $avada->avada_api_url . "/app/api/v1/customers";
 			$ch = curl_init($url);
 
 			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
@@ -238,7 +238,6 @@ function my_profile_update($user_id) {
 			curl_close($ch);
 		}
 	}
-	
 }
 
 // Webhook Update Order Completed / Refund
@@ -248,7 +247,7 @@ function avada_webhook_update_status_order($order_id) {
 		return;
 
 	$order = wc_get_order($order_id);
-
+	$avada = new Avada_Woo;
 	if(isset($order) && !is_null($order) && !empty($order) && ($order->has_status('completed') || $order->has_status('refunded'))) {
 
 		$order_data = [
@@ -311,9 +310,9 @@ function avada_webhook_update_status_order($order_id) {
 		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 		
 		if($order->has_status('completed')) { // Order Completed
-			$url = "https://app.avada.io/app/api/v1/orders/complete";
+			$url = $avada->avada_api_url . "/app/api/v1/orders/complete";
 		} else if($order->has_status('refunded')) { // Order Refund
-			$url = "https://app.avada.io/app/api/v1/orders/refund";
+			$url = $avada->avada_api_url . "/app/api/v1/orders/refund";
 		}
 		
 		$ch = curl_init($url);
@@ -347,7 +346,7 @@ function avada_popup_thankyou() {
 			window.AVADA_EM.shopId = "<?php echo !is_null($avada_woo_connection['avada_woo_app_id']) ? $avada_woo_connection['avada_woo_app_id'] : '' ?>";
 		</script>
 
-		<script data-cfasync="false" type="text/javascript">(function(b){var s=document.createElement("script");s.type="text/javascript";s.async=true;s.src=b;var x=document.getElementsByTagName("script")[0];x.parentNode.insertBefore(s,x);})("https://app.avada.io/avada-sdk.min.js");</script>
+		<script data-cfasync="false" type="text/javascript">(function(b){var s=document.createElement("script");s.type="text/javascript";s.async=true;s.src=b;var x=document.getElementsByTagName("script")[0];x.parentNode.insertBefore(s,x);})("<?php echo $avada->avada_api_url . '/avada-sdk.min.js' ?>");</script>
 	<?php
 }
 
@@ -356,7 +355,7 @@ add_action('woocommerce_thankyou', 'avada_script_thankyou');
 function avada_script_thankyou($order_id) {
 	if(!$order_id) return;
 	$order = wc_get_order($order_id);
-
+	$avada = new Avada_Woo;
 	if(isset($order) && !is_null($order)) {
 
 		global $wpdb;
@@ -375,7 +374,8 @@ function avada_script_thankyou($order_id) {
 			"email"                  => isset($data_order['billing']['email']) ? $data_order['billing']['email'] : null,
 			"created_at"             => isset($result->created_at) ? $result->created_at : null,
 			"updated_at"             => isset($result->updated_at) ? $result->updated_at : null,
-			"completed_at"           => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+			"completed_at"           => date('Y-m-d H:i:s', time()),
+			"is_utc"				 => true,
 			"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
 			"phone"                  => isset($data_order['billing']['phone']) ? $data_order['billing']['phone'] : null,
 			"customer_locale"        => "",
@@ -416,7 +416,7 @@ function avada_script_thankyou($order_id) {
 		$app_id = $option_connection['avada_woo_app_id'];
 		$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 
-		$url = "https://app.avada.io/app/api/v1/checkouts";
+		$url = $avada->avada_api_url . "/app/api/v1/checkouts";
 		$ch = curl_init($url);
 
 		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
@@ -526,7 +526,7 @@ function avada_restore_cart_abandonment() {
 
 add_action('woocommerce_add_to_cart', 'avada_create_cart_abandonment');
 function avada_create_cart_abandonment() {
-
+	$avada = new Avada_Woo;
 	$cart = WC()->cart->get_cart();
 	$line_items = [];
 	foreach($cart as $item_id => $item) {
@@ -551,8 +551,9 @@ function avada_create_cart_abandonment() {
 		"abandoned_checkout_url" => isset($result['link']) ? $result['link'] : null,
 		"email"                  => isset($data_customer['avada_billing_email']) ? $data_customer['avada_billing_email'] : null,
 		"created_at"             => isset($result['created_at']) ? $result['created_at'] : null,
-		"updated_at"             => get_date_from_gmt(date('Y-m-d H:i:s', time())),
+		"updated_at"             => date('Y-m-d H:i:s', time()),
 		"completed_at"           => null,
+		"is_utc"				 => true,
 		"timezone"				 => !is_null(get_option('timezone_string')) && !empty(get_option('timezone_string')) ? get_option('timezone_string') : get_option('gmt_offset'),
 		"phone"                  => isset($data_customer['avada_billing_phone']) ? $data_customer['avada_billing_phone'] : null,
 		"customer_locale"        => "",
@@ -593,7 +594,7 @@ function avada_create_cart_abandonment() {
 	$app_id = $option_connection['avada_woo_app_id'];
 	$hmac_sha256 = base64_encode(hash_hmac('sha256', $data, $option_connection['avada_woo_secret_key'], true));
 
-	$url = "https://app.avada.io/app/api/v1/checkouts";
+	$url = $avada->avada_api_url . "/app/api/v1/checkouts";
 	$ch = curl_init($url);
 
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");

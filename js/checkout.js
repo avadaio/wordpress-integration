@@ -2,14 +2,14 @@
 	$(document).ready(function(){
 		$('#billing_email, #billing_last_name, #billing_first_name, #billing_phone, #billing_address_1, #billing_city, #billing_country').focusout(function(){
 			
-			var avada_billing_email = $('#billing_email').val().trim()
-			if(validateEmail(avada_billing_email) || avada_billing_email == "") {
-				var avada_billing_last_name  = $('#billing_last_name').val().trim()
-				var avada_billing_first_name = $('#billing_first_name').val().trim()
-				var avada_billing_phone      = $('#billing_phone').val().trim()
-				var avada_billing_address_1  = $('#billing_address_1').val().trim()
-				var avada_billing_city       = $('#billing_city').val().trim()
-				var avada_billing_country    = $('#billing_country').val().trim()
+			var avada_billing_email = $('#billing_email')?.val()?.trim() || ''
+			if(validateEmail(avada_billing_email) || avada_billing_email === "") {
+				var avada_billing_last_name  = $('#billing_last_name')?.val()?.trim() || '';
+				var avada_billing_first_name = $('#billing_first_name')?.val()?.trim() || '';
+				var avada_billing_phone      = $('#billing_phone')?.val()?.trim() || '';
+				var avada_billing_address_1  = $('#billing_address_1')?.val()?.trim() || '';
+				var avada_billing_city       = $('#billing_city')?.val()?.trim() || '';
+				var avada_billing_country    = $('#billing_country')?.val()?.trim() || ''
 
 				var data_customer = {
 					avada_billing_email : avada_billing_email,
